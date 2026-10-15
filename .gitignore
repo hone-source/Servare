@@ -1,15 +1,34 @@
-*.iml
-.gradle
+# Gradle
+.gradle/
+**/build/
+
+# Configuración local de Android
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+
+# Android Studio - IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Archivos generados por Android NDK - CMake
+.externalNativeBuild/
+.cxx/
+
+# Capturas y archivos generados
+captures/
+*.hprof
+
+# Sistema operativo macOS
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
+
+# Logs
+*.log
+
+# Claves y credenciales locales
+keystore.properties
+*.jks
+*.keystore
+
+# Configuración local de entorno
+.env
+.env.local
