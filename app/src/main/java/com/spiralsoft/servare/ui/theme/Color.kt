@@ -1,4 +1,4 @@
-package com.spiralsoft.myapplication.ui.theme
+package com.spiralsoft.servare.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

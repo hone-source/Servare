@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.spiralsoft.myapplication"
+    namespace = "com.spiralsoft.servare"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.spiralsoft.myapplication"
+        applicationId = "com.spiralsoft.servare"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
