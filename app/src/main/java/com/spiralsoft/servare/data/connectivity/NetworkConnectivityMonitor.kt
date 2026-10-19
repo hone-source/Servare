@@ -2,12 +2,20 @@ package com.spiralsoft.servare.data.connectivity
 
 import android.net.ConnectivityManager
 import android.net.Network
-import com.spiralsoft.servare.data.sync.SyncScheduler
-import com.spiralsoft.servare.di.ApplicationScope
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.getAndUpdate
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.spiralsoft.servare.data.sync.SyncScheduler
+import com.spiralsoft.servare.di.ApplicationScope
 
 @Singleton
 class NetworkConnectivityMonitor @Inject constructor(
