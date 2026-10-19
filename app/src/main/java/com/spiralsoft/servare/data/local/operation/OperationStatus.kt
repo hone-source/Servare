@@ -1,4 +1,4 @@
-package com.spiralsoft.servare.data.local.entity
+package com.spiralsoft.servare.data.local.operation
 
 enum class OperationStatus {
     PENDIENTE,
@@ -9,11 +9,4 @@ enum class OperationStatus {
     FALLIDA,
     BLOQUEADA,
     DESCARTADA
-}
-
-enum class OperationType {
-    CREATE,
-    UPDATE,
-    DELETE,
-    ATTACH
 }
