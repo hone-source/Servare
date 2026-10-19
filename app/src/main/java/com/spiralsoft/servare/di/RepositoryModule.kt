@@ -1,0 +1,15 @@
+package com.spiralsoft.servare.di
+
+import com.spiralsoft.servare.data.repository.DefaultSacredSiteRepository
+import com.spiralsoft.servare.domain.repository.SacredSiteRepository
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RepositoryModule {
+    @Binds
+    abstract fun siteRepo(impl: DefaultSacredSiteRepository): SacredSiteRepository
+}
