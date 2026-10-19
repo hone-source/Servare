@@ -4,6 +4,8 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.Instant
+import com.spiralsoft.servare.data.local.operation.OperationStatus
+import com.spiralsoft.servare.data.local.operation.OperationType
 
 @Entity(
     tableName = "operations",
