@@ -1,24 +1,36 @@
 package com.spiralsoft.servare.di
 
-
 import android.content.Context
 import android.net.ConnectivityManager
-import com.spiralsoft.servare.data.connectivity.*
-import com.spiralsoft.servare.data.sync.*
-import dagger.*
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.*
-import javax.inject.*
+import dagger.Binds
+import dagger.Module
+import dagger.Provides
+import javax.inject.Named
+import javax.inject.Qualifier
+import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import com.spiralsoft.servare.data.connectivity.ConnectivityMonitor
+import com.spiralsoft.servare.data.connectivity.HealthCheckRetryPolicy
+import com.spiralsoft.servare.data.connectivity.NetworkConnectivityMonitor
+import com.spiralsoft.servare.data.connectivity.OkHttpHealthChecker
+import com.spiralsoft.servare.data.connectivity.ServerHealthChecker
+import com.spiralsoft.servare.data.sync.PlaceholderSyncScheduler
+import com.spiralsoft.servare.data.sync.SyncScheduler
 
-@Qualifier @Retention(AnnotationRetention.RUNTIME)
+@Qualifier
+@Retention(AnnotationRetention.RUNTIME)
 annotation class ApplicationScope
 
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ConnectivityBindsModule {
-    @Binds abstract fun monitor(impl: NetworkConnectivityMonitor): ConnectivityMonitor
+    @Binds
+    abstract fun monitor(impl: NetworkConnectivityMonitor): ConnectivityMonitor
     @Binds abstract fun healthChecker(impl: OkHttpHealthChecker): ServerHealthChecker
     @Binds abstract fun scheduler(impl: PlaceholderSyncScheduler): SyncScheduler
 }
@@ -26,7 +38,9 @@ abstract class ConnectivityBindsModule {
 @Module
 @InstallIn(SingletonComponent::class)
 object ConnectivityProvidesModule {
-    @Provides @Singleton @ApplicationScope
+    @Provides
+    @Singleton
+    @ApplicationScope
     fun appScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Provides fun connectivityManager(@ApplicationContext ctx: Context): ConnectivityManager =
