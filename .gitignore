@@ -32,3 +32,9 @@ keystore.properties
 # Configuración local de entorno
 .env
 .env.local
+
+# IA
+CLAUDE.md
+
+# Documentos
+docs/
