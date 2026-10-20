@@ -30,6 +30,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
@@ -37,12 +39,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -53,18 +58,18 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import com.spiralsoft.servare.ui.viewModel.state.ElementoEspacio
-import com.spiralsoft.servare.ui.viewModel.state.FichaFormState
-import com.spiralsoft.servare.ui.viewModel.state.Geometria
-import com.spiralsoft.servare.ui.viewModel.state.Participante
-import com.spiralsoft.servare.ui.viewModel.state.PuebloOriginario
-import com.spiralsoft.servare.ui.viewModel.state.PuntoPoligonal
-import com.spiralsoft.servare.ui.viewModel.state.RegistroArchivos
-import com.spiralsoft.servare.ui.viewModel.state.Ritual
+import com.spiralsoft.servare.data.model.ElementoEspacio
+import com.spiralsoft.servare.data.model.Ficha
+import com.spiralsoft.servare.data.model.Geometria
+import com.spiralsoft.servare.data.model.Participante
+import com.spiralsoft.servare.data.model.PuebloOriginario
+import com.spiralsoft.servare.data.model.PuntoPoligonal
+import com.spiralsoft.servare.data.model.RegistroArchivos
+import com.spiralsoft.servare.data.model.Ritual
 import com.spiralsoft.servare.ui.viewModel.FichaFormViewModel
-import com.spiralsoft.servare.ui.viewModel.state.TipoEspacio
-import com.spiralsoft.servare.ui.viewModel.state.TipoLugar
-import com.spiralsoft.servare.ui.viewModel.state.TipoRitual
+import com.spiralsoft.servare.data.model.TipoEspacio
+import com.spiralsoft.servare.data.model.TipoLugar
+import com.spiralsoft.servare.data.model.TipoRitual
 import com.spiralsoft.servare.ui.viewModel.state.quitar
 import com.spiralsoft.servare.ui.viewModel.state.reemplazar
 
@@ -75,38 +80,72 @@ private val FORMATO_HORA = DateTimeFormatter.ofPattern("HH:mm")
 @Composable
 fun FormFichaScreen(
     onVolver: () -> Unit,
+    onGuardada: () -> Unit,
     viewModel: FichaFormViewModel = hiltViewModel()
 ) {
     val form by viewModel.form.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+
+    LaunchedEffect(form.guardada) {
+        if (form.guardada) onGuardada()
+    }
+    LaunchedEffect(form.mensaje) {
+        form.mensaje?.let {
+            snackbar.showSnackbar(it, withDismissAction = true)
+            viewModel.mensajeMostrado()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ficha técnica de levantamiento") },
+                title = { Text(if (form.entityId == null) "Ficha técnica de levantamiento" else "Editar ficha") },
                 navigationIcon = {
                     IconButton(onClick = onVolver) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
+                },
+                actions = {
+                    TextButton(
+                        onClick = viewModel::guardar,
+                        enabled = !form.guardando && !form.cargando && form.errorCarga == null
+                    ) {
+                        Text("Guardar")
+                    }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
-        FichaForm(
-            form = form,
-            onChange = viewModel::updateForm,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .consumeWindowInsets(padding)
-                .imePadding()
-        )
+        val errorCarga = form.errorCarga
+        when {
+            // Sin formulario hasta tener la ficha, para no mezclar lo escrito con lo guardado
+            form.cargando -> Box(Modifier.fillMaxSize().padding(padding))
+            errorCarga != null -> Box(
+                Modifier.fillMaxSize().padding(padding).padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(errorCarga, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+            }
+            else -> FichaForm(
+                form = form.ficha,
+                errorNombre = form.errorNombre,
+                onChange = viewModel::updateFicha,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
+                    .imePadding()
+            )
+        }
     }
 }
 
 @Composable
 private fun FichaForm(
-    form: FichaFormState,
-    onChange: ((FichaFormState) -> FichaFormState) -> Unit,
+    form: Ficha,
+    errorNombre: String?,
+    onChange: ((Ficha) -> Ficha) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -145,7 +184,9 @@ private fun FichaForm(
                     onChange { it.copy(tipoEspacioOtro = v) }
                 }
             }
-            Campo("Nombre del lugar", form.nombre) { v -> onChange { it.copy(nombre = v) } }
+            Campo("Nombre del lugar", form.nombre, ayuda = "Obligatorio", error = errorNombre) { v ->
+                onChange { it.copy(nombre = v) }
+            }
             Campo(
                 "Otros nombres", form.otrosNombres, multilinea = true,
                 ayuda = "Cómo se le refiere, conoce y/o identifica"
@@ -386,13 +427,15 @@ private fun Campo(
     multilinea: Boolean = false,
     teclado: KeyboardType = KeyboardType.Text,
     ayuda: String? = null,
+    error: String? = null,
     onValor: (String) -> Unit
 ) {
     OutlinedTextField(
         value = valor,
         onValueChange = onValor,
         label = { Text(etiqueta) },
-        supportingText = ayuda?.let { { Text(it) } },
+        isError = error != null,
+        supportingText = (error ?: ayuda)?.let { { Text(it) } },
         singleLine = !multilinea,
         minLines = if (multilinea) 3 else 1,
         keyboardOptions = KeyboardOptions(
