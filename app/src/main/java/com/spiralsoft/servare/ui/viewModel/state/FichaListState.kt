@@ -1,17 +1,8 @@
 package com.spiralsoft.servare.ui.viewModel.state
 
-import java.time.LocalDate
+import com.spiralsoft.servare.data.model.FichaResumen
 
 data class FichaListState(
+    val cargando: Boolean = true,       // evita mostrar "no hay fichas" antes de leer Room
     val fichas: List<FichaResumen> = emptyList()
-)
-
-// Lo minimo para identificar una ficha en la lista
-data class FichaResumen(
-    val entityId: String,
-    val nombre: String,
-    val tipoEspacio: TipoEspacio?,
-    val comunidad: String,
-    val fechaLevantamiento: LocalDate?,
-    val pendienteSincronizar: Boolean   // RF-08
 )
