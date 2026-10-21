@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,7 +25,8 @@ private val FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 @Composable
 fun TarjetaFicha(
     ficha: FichaResumen,
-    onEditar: () -> Unit
+    onEditar: () -> Unit,
+    onBorrar: () -> Unit
 ) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -39,6 +41,9 @@ fun TarjetaFicha(
                 )
                 IconButton(onClick = onEditar) {
                     Icon(Icons.TwoTone.Edit, contentDescription = "Editar")
+                }
+                IconButton(onClick = onBorrar) {
+                    Icon(Icons.TwoTone.Delete, contentDescription = "Borrar")
                 }
             }
             ficha.tipoEspacio?.let {
