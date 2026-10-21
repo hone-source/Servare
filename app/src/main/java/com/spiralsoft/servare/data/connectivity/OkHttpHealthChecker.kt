@@ -19,8 +19,7 @@ class OkHttpHealthChecker @Inject constructor(
     @Named("baseUrl") private val baseUrl: String
 ) : ServerHealthChecker {
 
-    // TODO(RNF-05): valor pendiente; define el límite de detección (5 s)
-    private val timeout: Duration = 3.seconds
+    private val timeout: Duration = 5.seconds
 
     // Cliente propio, sin AuthInterceptor: el health check no debe depender de la sesión
     private val client = OkHttpClient.Builder()
