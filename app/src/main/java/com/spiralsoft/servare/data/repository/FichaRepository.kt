@@ -11,6 +11,8 @@ interface FichaRepository {
     suspend fun guardar(entityId: String?, ficha: Ficha): ResultadoGuardado
 
     suspend fun obtener(entityId: String): ResultadoCarga
+
+    suspend fun eliminar(entityId: String): ResultadoEliminacion
 }
 
 sealed interface ResultadoGuardado {
@@ -24,4 +26,10 @@ sealed interface ResultadoCarga {
     data class Encontrada(val ficha: Ficha) : ResultadoCarga
     data object NoEncontrada : ResultadoCarga
     data object ErrorAlmacenamiento : ResultadoCarga
+}
+
+sealed interface ResultadoEliminacion {
+    data object Eliminada : ResultadoEliminacion
+    data object NoEncontrada : ResultadoEliminacion
+    data object ErrorAlmacenamiento : ResultadoEliminacion
 }
