@@ -8,7 +8,3 @@ interface ConnectivityMonitor {
     val state: StateFlow<ConnectivityState>
     fun isConnected(): Boolean
 }
-
-interface ServerHealthChecker {
-    suspend fun check(): Boolean
-}
