@@ -39,3 +39,10 @@ CLAUDE.md
 
 # Documentos
 docs/
+
+# Kotlin 2.x (datos de sesión del compilador)
+.kotlin/
+
+# CA local de mkcert
+/app/src/debug/res/raw/dev_ca.pem
+*-key.pem
