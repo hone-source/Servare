@@ -14,13 +14,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.spiralsoft.servare.data.remote.RemoteDataSource
 import com.spiralsoft.servare.data.sync.SyncScheduler
 import com.spiralsoft.servare.di.ApplicationScope
 
 @Singleton
 class NetworkConnectivityMonitor @Inject constructor(
     private val connectivityManager: ConnectivityManager,
-    private val healthChecker: ServerHealthChecker,
+    private val remote: RemoteDataSource,
     @ApplicationScope private val scope: CoroutineScope,
     private val retryPolicy: HealthCheckRetryPolicy,
     private val scheduler: SyncScheduler
@@ -84,7 +85,7 @@ class NetworkConnectivityMonitor @Inject constructor(
     private suspend fun recheckWithBackoff() {
         var attempt = 0
         while (currentCoroutineContext().isActive) {
-            if (healthChecker.check()) {
+            if (remote.healthCheck()) {
                 enterConnected()
                 return
             }
