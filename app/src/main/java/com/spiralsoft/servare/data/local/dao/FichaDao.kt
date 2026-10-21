@@ -16,4 +16,8 @@ interface FichaDao {
 
     @Upsert
     suspend fun upsert(ficha: FichaEntity)
+
+    /** Devuelve cuántas filas borró (0 = ya no existía). */
+    @Query("DELETE FROM fichas WHERE entityId = :entityId")
+    suspend fun deleteById(entityId: String): Int
 }
