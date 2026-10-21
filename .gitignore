@@ -26,6 +26,7 @@ captures/
 
 # Claves y credenciales locales
 keystore.properties
+servare.properties
 *.jks
 *.keystore
 
