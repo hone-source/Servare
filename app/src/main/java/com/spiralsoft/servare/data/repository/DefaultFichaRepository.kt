@@ -56,4 +56,14 @@ class DefaultFichaRepository @Inject constructor(
     } catch (e: SQLiteException) {
         ResultadoCarga.ErrorAlmacenamiento
     }
+
+    override suspend fun eliminar(entityId: String): ResultadoEliminacion = try {
+        val borradas = database.withTransaction {
+            fichaDao.deleteById(entityId)
+            // TODO: OperationEntity DELETE PENDIENTE aquí (misma transacción); requestSync() fuera de ella
+        }
+        if (borradas > 0) ResultadoEliminacion.Eliminada else ResultadoEliminacion.NoEncontrada
+    } catch (e: SQLiteException) {
+        ResultadoEliminacion.ErrorAlmacenamiento
+    }
 }
