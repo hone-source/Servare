@@ -93,6 +93,16 @@ class DefaultStatusNotifier @Inject constructor() : StatusNotifier {
             titulo = "No se descargaron cambios",
             detalle = "El servidor no entregó las fichas. Se volverá a intentar en la próxima sincronización."
         )
+        is ResultadoSync.EliminadasEnServidor ->
+            if (resultado.nombres.size == 1) MensajeEstado(
+                titulo = "Ficha eliminada en el servidor",
+                detalle = "${ficha(resultado.nombres[0]).replaceFirstChar { it.uppercase() }} se eliminó " +
+                    "en el servidor y se quitó de este dispositivo."
+            ) else MensajeEstado(
+                titulo = "Fichas eliminadas en el servidor",
+                detalle = "${resultado.nombres.size} fichas se eliminaron en el servidor y se quitaron " +
+                    "de este dispositivo."
+            )
     }
 
     override fun mensajeCambio(cambio: CambioPorResolver): MensajeEstado {
