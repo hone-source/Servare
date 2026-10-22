@@ -13,6 +13,7 @@ import javax.inject.Inject
 import com.spiralsoft.servare.data.local.AppDatabase
 import com.spiralsoft.servare.data.local.dao.FichaDao
 import com.spiralsoft.servare.data.local.entity.FichaEntity
+import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.data.local.entity.toResumen
 import com.spiralsoft.servare.data.local.operation.OperationType
 import com.spiralsoft.servare.data.queue.OperationQueue
@@ -60,11 +61,13 @@ class DefaultFichaRepository @Inject constructor(
                         entityId = id,
                         datos = ficha,
                         createdAt = existente?.createdAt ?: ahora,
-                        updatedAt = ahora
+                        updatedAt = ahora,
+                        version = existente?.version
                     )
                 )
                 val tipo = if (existente == null) OperationType.CREATE else OperationType.UPDATE
-                queue.enqueueReplacingRejected(tipo, id, json.encodeToString(ficha))
+                // Parte de la última versión conocida; si hay operaciones antes, la cola la encadena
+                queue.enqueueReplacingRejected(tipo, id, json.encodeToString(ficha), existente?.version)
             }
             scheduler.requestSync()
             ResultadoGuardado.Guardada(id)
@@ -86,7 +89,7 @@ class DefaultFichaRepository @Inject constructor(
             val existente = fichaDao.findById(entityId) ?: return@withTransaction false
             fichaDao.deleteById(entityId)
             // La operación conserva la última versión de la ficha: si el borrado falla, no se pierde
-            queue.enqueue(OperationType.DELETE, entityId, json.encodeToString(existente.datos))
+            queue.enqueue(OperationType.DELETE, entityId, json.encodeToString(existente.datos), existente.version)
             true
         }
         if (eliminada) {
@@ -99,21 +102,45 @@ class DefaultFichaRepository @Inject constructor(
         ResultadoEliminacion.ErrorAlmacenamiento
     }
 
-    override suspend fun aplicarRemota(entityId: String, ficha: Ficha) {
+    override suspend fun aplicarRemota(entityId: String, ficha: Ficha, version: Int?) {
         database.withTransaction {
             // Push antes de pull: lo que aún está en la cola manda sobre lo que trae el servidor
             if (queue.hasUnfinished(entityId)) return@withTransaction
             val existente = fichaDao.findById(entityId)
-            if (existente?.datos == ficha) return@withTransaction
+            if (existente?.datos == ficha && existente.version == version) return@withTransaction
             val ahora = Instant.now(clock)
             fichaDao.upsert(
                 FichaEntity(
                     entityId = entityId,
                     datos = ficha,
                     createdAt = existente?.createdAt ?: ahora,
-                    updatedAt = ahora
+                    updatedAt = ahora,
+                    version = version
                 )
             )
         }
     }
+
+    override suspend fun idsLocales(): Set<String> = fichaDao.findAllIds().toSet()
+
+    override suspend fun quitarEliminadasEnServidor(entityIds: Collection<String>): List<String?> =
+        database.withTransaction {
+            buildList {
+                for (id in entityIds) {
+                    // Igual que en aplicarRemota: lo que aún está en la cola manda sobre el servidor
+                    if (queue.hasUnfinished(id)) continue
+                    val existente = fichaDao.findById(id) ?: continue
+                    fichaDao.deleteById(id)
+                    add(existente.datos.nombre.ifBlank { null })
+                }
+            }
+        }
+
+    override suspend fun confirmarEnvio(op: OperationEntity, version: Int?) {
+        database.withTransaction {
+            queue.complete(op, version)
+            if (version != null) fichaDao.updateVersion(op.entityId, version)
+        }
+    }
+
 }
