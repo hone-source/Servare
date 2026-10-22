@@ -122,8 +122,9 @@ class NetworkConnectivityMonitor @Inject constructor(
     private fun enterConnected() {
         if (currentNetwork == null) return // la red se perdió mientras se verificaba
         val previous = _state.getAndUpdate { ConnectivityState.CONECTADO }
-        // Solo ENTRAR a CONECTADO es "recuperación de conexión" y dispara la sincronización
-        if (previous != ConnectivityState.CONECTADO) scheduler.requestSync(pull = true)
+        // Solo ENTRAR a CONECTADO es "recuperación de conexión" y dispara la sincronización.
+        // Fuera del job del health check: si un cambio de red lo cancela, la solicitud no se pierde
+        if (previous != ConnectivityState.CONECTADO) scope.launch { scheduler.requestSync(pull = true) }
     }
 
 }
