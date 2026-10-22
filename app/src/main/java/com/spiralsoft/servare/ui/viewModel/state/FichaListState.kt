@@ -4,8 +4,9 @@ import com.spiralsoft.servare.domain.model.FichaResumen
 import com.spiralsoft.servare.notification.MensajeEstado
 
 data class FichaListState(
-    val cargando: Boolean = true,       // evita mostrar "no hay fichas" antes de leer Room
+    val cargando: Boolean = true,               // estado de carga de fichas
     val fichas: List<FichaResumen> = emptyList(),
     val avisoConexion: MensajeEstado? = null,   // null = CONECTADO, nada que avisar
-    val mensaje: String? = null                 // resultado de eliminar, se muestra una vez
+    val cambiosPorResolver: Int = 0,            // FALLIDOS o en CONFLICTO: > 0 muestra el aviso
+    val mensaje: String? = null                 // resultado de eliminar o de sincronizar, se muestra una vez
 )
