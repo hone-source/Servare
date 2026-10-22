@@ -1,12 +1,18 @@
 package com.spiralsoft.servare.data.sync
 
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.await
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -16,14 +22,16 @@ import javax.inject.Singleton
 
 /**
  * Disparadores del motor de sincronización.
- * Single-flight: un solo ciclo a la vez, como trabajo único [WorkManagerSyncScheduler.SYNC_WORK] con KEEP.
+ * Single-flight: un solo ciclo a la vez, como trabajo único [WorkManagerSyncScheduler.SYNC_WORK];
+ * un ciclo nuevo se encadena detrás del que corre, nunca en paralelo.
  */
 interface SyncScheduler {
     /**
-     * Solicita un ciclo. Si ya hay uno en curso no se inicia otro: el que corre vuelve a revisar
-     * la cola antes de terminar. [pull]: también descargar cambios (recuperación de conexión, inicio).
+     * Solicita un ciclo. Si hay uno esperando a empezar, ese la atiende; si hay uno en curso, se
+     * encadena otro detrás. [pull]: también descargar cambios (recuperación de conexión, inicio).
+     * No lanza: si WorkManager no pudo registrar el ciclo, lo toma el siguiente disparador.
      */
-    fun requestSync(pull: Boolean = false)
+    suspend fun requestSync(pull: Boolean = false)
 
     /** Programa un ciclo para cuando venza el `nextAttemptAt` más próximo. */
     fun scheduleRetry(at: Instant)
@@ -67,13 +75,28 @@ class WorkManagerSyncScheduler @Inject constructor(
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
 
-    override fun requestSync(pull: Boolean) {
+    /** Revisar y encolar sin intercalarse: dos solicitudes simultáneas no encadenan dos ciclos. */
+    private val enqueueLock = Mutex()
+
+    override suspend fun requestSync(pull: Boolean) {
+        // Primero la solicitud y después la revisión: un ciclo que aún no empieza la lee al arrancar
         requests.add(pull)
-        workManager.enqueueUniqueWork(
-            SYNC_WORK,
-            ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(withNetwork).build()
-        )
+        try {
+            enqueueLock.withLock {
+                val enEspera = workManager.getWorkInfosForUniqueWorkFlow(SYNC_WORK).first()
+                    .any { it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.BLOCKED }
+                if (enEspera) return
+                // Con uno en curso, KEEP descartaría la solicitud si llegó después de su última revisión
+                // de la cola; APPEND_OR_REPLACE la encadena detrás (si el anterior falló, inicia otra cadena)
+                workManager.enqueueUniqueWork(
+                    SYNC_WORK,
+                    ExistingWorkPolicy.APPEND_OR_REPLACE,
+                    OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(withNetwork).build()
+                ).await()
+            }
+        } catch (_: SQLiteException) {
+            // La operación ya está PENDIENTE en Room: el guardado no falló y el siguiente disparador la envía
+        }
     }
 
     override fun scheduleRetry(at: Instant) {
