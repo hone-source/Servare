@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.spiralsoft.servare.ui.composable.AvisoCambiosPorResolver
 import com.spiralsoft.servare.ui.composable.AvisoConexion
 import com.spiralsoft.servare.ui.composable.ListaVacia
 import com.spiralsoft.servare.ui.composable.TarjetaFicha
@@ -41,6 +42,7 @@ import com.spiralsoft.servare.ui.viewModel.FichaListViewModel
 fun ListFichaScreen(
     onNuevaFicha: () -> Unit,
     onEditarFicha: (entityId: String) -> Unit,
+    onRevisarCambios: () -> Unit,
     mensaje: String?,
     onMensajeMostrado: () -> Unit,
     viewModel: FichaListViewModel = hiltViewModel()
@@ -96,6 +98,9 @@ fun ListFichaScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             state.avisoConexion?.let { AvisoConexion(it) }
+            if (state.cambiosPorResolver > 0) {
+                AvisoCambiosPorResolver(state.cambiosPorResolver, onRevisar = onRevisarCambios)
+            }
 
             if (state.cargando) {
                 Box(Modifier.fillMaxSize())
