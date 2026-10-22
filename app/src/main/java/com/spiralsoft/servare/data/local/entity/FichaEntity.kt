@@ -14,7 +14,8 @@ data class FichaEntity(
     @PrimaryKey val entityId: String,   // UUID generado en el cliente
     @Embedded val datos: Ficha,
     val createdAt: Instant,
-    val updatedAt: Instant
+    val updatedAt: Instant,
+    val version: Int? = null            // última versión conocida del servidor (ETag); base de las operaciones
 )
 
 fun FichaEntity.toResumen(sincronizacion: EstadoSincronizacion) =
