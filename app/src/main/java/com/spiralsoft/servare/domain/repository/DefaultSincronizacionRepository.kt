@@ -71,11 +71,14 @@ class DefaultSincronizacionRepository @Inject constructor(
             // El servidor no confirmó el registro: volver a su versión es que no exista
             fichaDao.deleteById(entityId)
         } else if (fichaDao.findById(entityId) == null) {
-            // Se descartó una eliminación: la ficha vuelve con la copia que guardó la operación;
-            // si el servidor tiene otra versión, el pull la reemplaza
-            val copia = ordenadas.last().fichaGuardada() ?: return
+            // Se descartó una eliminación: la ficha vuelve con la copia y la versión que guardó la
+            // operación; si el servidor tiene otra versión, el pull la reemplaza
+            val eliminacion = ordenadas.last()
+            val copia = eliminacion.fichaGuardada() ?: return
             val ahora = Instant.now(clock)
-            fichaDao.upsert(FichaEntity(entityId, copia, createdAt = ahora, updatedAt = ahora))
+            fichaDao.upsert(
+                FichaEntity(entityId, copia, createdAt = ahora, updatedAt = ahora, version = eliminacion.baseVersion)
+            )
         }
     }
 
