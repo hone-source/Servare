@@ -75,7 +75,7 @@ class RetrofitRemoteDataSource @Inject constructor(
                 response.isSuccessful && response.body()?.status == "ok"
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // sin DNS, conexión rechazada, TLS no válido, respuesta que no es del API
                 false
             }
@@ -113,11 +113,11 @@ class RetrofitRemoteDataSource @Inject constructor(
         }
     } catch (e: CancellationException) {
         throw e
-    } catch (e: InterruptedIOException) {
+    } catch (_: InterruptedIOException) {
         RespuestaRemota.Timeout              // callTimeout de OkHttp o timeout de socket
-    } catch (e: IOException) {
+    } catch (_: IOException) {
         RespuestaRemota.SinRespuesta         // sin red, conexión cortada, sin DNS, TLS
-    } catch (e: SerializationException) {
+    } catch (_: SerializationException) {
         RespuestaRemota.Rechazada(null, RESPUESTA_INVALIDA)
     }
 
@@ -131,7 +131,7 @@ class RetrofitRemoteDataSource @Inject constructor(
     /** Motivo que da el API en `{"error": "..."}`; Retrofit ya dejó el cuerpo en memoria. */
     private fun reasonOf(response: Response<*>): String? = try {
         response.errorBody()?.string()?.let { json.decodeFromString<ErrorResponse>(it).error }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         null
     }
 
