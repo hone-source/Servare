@@ -3,9 +3,9 @@ package com.spiralsoft.servare.domain.repository
 import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteFullException
 import androidx.room.withTransaction
-import com.google.gson.Gson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.serialization.json.Json
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -26,7 +26,7 @@ class DefaultFichaRepository @Inject constructor(
     private val fichaDao: FichaDao,
     private val queue: OperationQueue,
     private val scheduler: SyncScheduler,
-    private val gson: Gson,
+    private val json: Json,
     private val clock: Clock
 ) : FichaRepository {
 
@@ -64,7 +64,7 @@ class DefaultFichaRepository @Inject constructor(
                     )
                 )
                 val tipo = if (existente == null) OperationType.CREATE else OperationType.UPDATE
-                queue.enqueueReplacingRejected(tipo, id, gson.toJson(ficha))
+                queue.enqueueReplacingRejected(tipo, id, json.encodeToString(ficha))
             }
             scheduler.requestSync()
             ResultadoGuardado.Guardada(id)
@@ -86,7 +86,7 @@ class DefaultFichaRepository @Inject constructor(
             val existente = fichaDao.findById(entityId) ?: return@withTransaction false
             fichaDao.deleteById(entityId)
             // La operación conserva la última versión de la ficha: si el borrado falla, no se pierde
-            queue.enqueue(OperationType.DELETE, entityId, gson.toJson(existente.datos))
+            queue.enqueue(OperationType.DELETE, entityId, json.encodeToString(existente.datos))
             true
         }
         if (eliminada) {
