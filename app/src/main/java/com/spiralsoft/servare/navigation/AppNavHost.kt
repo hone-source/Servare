@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.spiralsoft.servare.ui.screen.CambiosScreen
 import com.spiralsoft.servare.ui.screen.FormFichaScreen
 import com.spiralsoft.servare.ui.screen.ListFichaScreen
 
@@ -32,9 +33,13 @@ fun AppNavHost(
             ListFichaScreen(
                 onNuevaFicha = { navController.navigate(Screen.Form.createRoute()) },
                 onEditarFicha = { navController.navigate(Screen.Form.createRoute(it)) },
+                onRevisarCambios = { navController.navigate(Screen.Cambios.route) },
                 mensaje = mensaje,
                 onMensajeMostrado = { entry.savedStateHandle[MENSAJE] = null }
             )
+        }
+        composable(Screen.Cambios.route) {
+            CambiosScreen(onVolver = { navController.popBackStack() })
         }
         composable(
             Screen.Form.route,
