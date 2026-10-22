@@ -1,6 +1,6 @@
 package com.spiralsoft.servare.ui.viewModel.state
 
-import com.spiralsoft.servare.data.model.FichaResumen
+import com.spiralsoft.servare.domain.model.FichaResumen
 import com.spiralsoft.servare.notification.MensajeEstado
 
 data class FichaListState(

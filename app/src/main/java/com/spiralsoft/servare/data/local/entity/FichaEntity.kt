@@ -4,8 +4,8 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.Instant
-import com.spiralsoft.servare.data.model.Ficha
-import com.spiralsoft.servare.data.model.FichaResumen
+import com.spiralsoft.servare.domain.model.Ficha
+import com.spiralsoft.servare.domain.model.FichaResumen
 
 // Las listas repetibles y los RegistroArchivos se guardan como JSON (ver Converters)
 @Entity(tableName = "fichas")

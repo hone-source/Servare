@@ -18,7 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.time.format.DateTimeFormatter
-import com.spiralsoft.servare.data.model.FichaResumen
+import com.spiralsoft.servare.domain.model.FichaResumen
 
 private val FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 

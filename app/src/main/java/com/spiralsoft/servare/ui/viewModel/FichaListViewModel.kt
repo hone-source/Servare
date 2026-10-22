@@ -15,9 +15,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.spiralsoft.servare.data.connectivity.ConnectivityState
-import com.spiralsoft.servare.data.repository.ConectividadRepository
-import com.spiralsoft.servare.data.repository.FichaRepository
-import com.spiralsoft.servare.data.repository.ResultadoEliminacion
+import com.spiralsoft.servare.domain.repository.ConectividadRepository
+import com.spiralsoft.servare.domain.repository.FichaRepository
+import com.spiralsoft.servare.domain.repository.ResultadoEliminacion
 import com.spiralsoft.servare.notification.StatusNotifier
 import com.spiralsoft.servare.ui.viewModel.state.FichaListState
 

@@ -1,4 +1,4 @@
-package com.spiralsoft.servare.data.repository
+package com.spiralsoft.servare.domain.repository
 
 import com.spiralsoft.servare.data.connectivity.ConnectivityMonitor
 import com.spiralsoft.servare.data.connectivity.ConnectivityState

@@ -1,6 +1,6 @@
 package com.spiralsoft.servare.ui.viewModel.state
 
-import com.spiralsoft.servare.data.model.Ficha
+import com.spiralsoft.servare.domain.model.Ficha
 
 data class FichaFormState(
     val entityId: String? = null, // null hasta el primer guardado

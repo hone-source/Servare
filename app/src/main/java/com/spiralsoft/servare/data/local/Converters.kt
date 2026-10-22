@@ -6,11 +6,11 @@ import com.google.gson.reflect.TypeToken
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
-import com.spiralsoft.servare.data.model.ElementoEspacio
-import com.spiralsoft.servare.data.model.Participante
-import com.spiralsoft.servare.data.model.PuntoPoligonal
-import com.spiralsoft.servare.data.model.RegistroArchivos
-import com.spiralsoft.servare.data.model.Ritual
+import com.spiralsoft.servare.domain.model.ElementoEspacio
+import com.spiralsoft.servare.domain.model.Participante
+import com.spiralsoft.servare.domain.model.PuntoPoligonal
+import com.spiralsoft.servare.domain.model.RegistroArchivos
+import com.spiralsoft.servare.domain.model.Ritual
 
 private val gson: Gson = Gson()
 

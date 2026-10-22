@@ -1,4 +1,4 @@
-package com.spiralsoft.servare.data.repository
+package com.spiralsoft.servare.domain.repository
 
 import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteFullException
@@ -7,8 +7,8 @@ import com.spiralsoft.servare.data.local.AppDatabase
 import com.spiralsoft.servare.data.local.dao.FichaDao
 import com.spiralsoft.servare.data.local.entity.FichaEntity
 import com.spiralsoft.servare.data.local.entity.toResumen
-import com.spiralsoft.servare.data.model.Ficha
-import com.spiralsoft.servare.data.model.FichaResumen
+import com.spiralsoft.servare.domain.model.Ficha
+import com.spiralsoft.servare.domain.model.FichaResumen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Clock

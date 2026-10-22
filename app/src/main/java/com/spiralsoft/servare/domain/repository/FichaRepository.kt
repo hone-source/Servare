@@ -1,7 +1,7 @@
-package com.spiralsoft.servare.data.repository
+package com.spiralsoft.servare.domain.repository
 
-import com.spiralsoft.servare.data.model.Ficha
-import com.spiralsoft.servare.data.model.FichaResumen
+import com.spiralsoft.servare.domain.model.Ficha
+import com.spiralsoft.servare.domain.model.FichaResumen
 import kotlinx.coroutines.flow.Flow
 
 interface FichaRepository {

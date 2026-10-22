@@ -4,10 +4,10 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import com.spiralsoft.servare.data.repository.ConectividadRepository
-import com.spiralsoft.servare.data.repository.DefaultConectividadRepository
-import com.spiralsoft.servare.data.repository.DefaultFichaRepository
-import com.spiralsoft.servare.data.repository.FichaRepository
+import com.spiralsoft.servare.domain.repository.ConectividadRepository
+import com.spiralsoft.servare.domain.repository.DefaultConectividadRepository
+import com.spiralsoft.servare.domain.repository.DefaultFichaRepository
+import com.spiralsoft.servare.domain.repository.FichaRepository
 
 @Module
 @InstallIn(SingletonComponent::class)

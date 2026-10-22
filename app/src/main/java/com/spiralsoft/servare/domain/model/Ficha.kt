@@ -1,4 +1,4 @@
-package com.spiralsoft.servare.data.model
+package com.spiralsoft.servare.domain.model
 
 import java.time.LocalDate
 import java.time.LocalTime

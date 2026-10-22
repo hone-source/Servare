@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.spiralsoft.servare.data.model.Ficha
-import com.spiralsoft.servare.data.repository.FichaRepository
-import com.spiralsoft.servare.data.repository.ResultadoCarga
-import com.spiralsoft.servare.data.repository.ResultadoGuardado
+import com.spiralsoft.servare.domain.model.Ficha
+import com.spiralsoft.servare.domain.repository.FichaRepository
+import com.spiralsoft.servare.domain.repository.ResultadoCarga
+import com.spiralsoft.servare.domain.repository.ResultadoGuardado
 import com.spiralsoft.servare.ui.viewModel.state.FichaFormState
 
 @HiltViewModel
