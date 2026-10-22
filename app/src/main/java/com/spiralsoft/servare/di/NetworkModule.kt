@@ -30,7 +30,7 @@ abstract class NetworkBindsModule {
 object NetworkProvidesModule {
     // 10.0.2.2 = el localhost desde la PC visto desde el emulador.
     // TODO: pasar a un archivo aparte
-    @Provides @Named("baseUrl") fun baseUrl(): String = "https://10.0.2.2:8000/"
+    @Provides @Named("baseUrl") fun baseUrl(): String = "https://10.0.2.2:8000/api/"
     
     @Provides @Singleton fun okHttpClient(): OkHttpClient = OkHttpClient.Builder()
         .callTimeout(5.seconds.toJavaDuration())
