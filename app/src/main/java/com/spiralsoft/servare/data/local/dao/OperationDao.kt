@@ -59,6 +59,12 @@ interface OperationDao {
     @Query("SELECT * FROM operations WHERE status IN ('FALLIDA','CONFLICTO')")
     suspend fun findFailedOrConflicted(): List<OperationEntity>
 
+    @Query("SELECT * FROM operations WHERE entityId = :entityId AND status = 'FALLIDA' ORDER BY rowid")
+    suspend fun findFailedByEntity(entityId: String): List<OperationEntity>
+
+    @Query("UPDATE operations SET dependsOn = :newId WHERE dependsOn IN (:oldIds)")
+    suspend fun repointDependsOn(oldIds: List<String>, newId: String)
+
     @Query("UPDATE operations SET status = 'PENDIENTE' WHERE status = 'BLOQUEADA'")
     suspend fun unblockAll()
 
