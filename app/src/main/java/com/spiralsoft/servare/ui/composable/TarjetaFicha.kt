@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.time.format.DateTimeFormatter
+import com.spiralsoft.servare.domain.model.EstadoSincronizacion
 import com.spiralsoft.servare.domain.model.FichaResumen
 
 private val FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -56,11 +57,17 @@ fun TarjetaFicha(
             if (detalle.isNotEmpty()) {
                 Text(detalle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (ficha.pendienteSincronizar) {
-                Text(
+            when (ficha.sincronizacion) {
+                EstadoSincronizacion.SINCRONIZADA -> Unit
+                EstadoSincronizacion.PENDIENTE -> Text(
                     "Pendiente de sincronizar",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.tertiary
+                )
+                EstadoSincronizacion.REQUIERE_ATENCION -> Text(
+                    "No se pudo sincronizar",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error
                 )
             }
 
