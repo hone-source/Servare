@@ -13,6 +13,8 @@ interface FichaRepository {
     suspend fun obtener(entityId: String): ResultadoCarga
 
     suspend fun eliminar(entityId: String): ResultadoEliminacion
+
+    suspend fun aplicarRemota(entityId: String, ficha: Ficha)
 }
 
 sealed interface ResultadoGuardado {
