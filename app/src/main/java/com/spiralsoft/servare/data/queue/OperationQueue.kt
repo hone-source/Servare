@@ -64,6 +64,28 @@ class OperationQueue @Inject constructor(
         op.operationId
     }
 
+    suspend fun enqueueReplacingRejected(
+        type: OperationType,
+        entityId: String,
+        data: String
+    ): String = database.withTransaction {
+        val rejected = dao.findFailedByEntity(entityId).firstOrNull { it.isRejectedPut() }
+            ?: return@withTransaction enqueue(type, entityId, data)
+        val followers = dao.findByIds(dependentsOf(rejected.operationId)).filter { it.entityId == entityId }
+        if (followers.any { it.type !in PUT_TYPES }) return@withTransaction enqueue(type, entityId, data)
+
+        val superseded = listOf(rejected) + followers
+        val now = now()
+        superseded.forEach { dao.update(it.copy(status = OperationStatus.DESCARTADA, finishedAt = now)) }
+        val operationId = enqueue(rejected.type, entityId, data, rejected.baseVersion)
+        dao.repointDependsOn(superseded.map { it.operationId }, operationId)
+        recomputeBlocked()
+        operationId
+    }
+
+    private fun OperationEntity.isRejectedPut() =
+        type in PUT_TYPES && !retryPolicy.isExhausted(attemptCount)
+
     /** Entidades con operaciones sin terminar (RF-08). */
     fun observeUnsyncedEntityIds(): Flow<Set<String>> =
         dao.observeUnsyncedEntityIds().map { it.toSet() }
@@ -211,8 +233,8 @@ class OperationQueue @Inject constructor(
     /** Debe correr dentro de una transacción. */
     private suspend fun recomputeBlocked() {
         dao.unblockAll()
-        for (op in dao.findFailedOrConflicted()) {
-            val ids = dependentsOf(op.operationId)
+        for ((operationId) in dao.findFailedOrConflicted()) {
+            val ids = dependentsOf(operationId)
             if (ids.isNotEmpty()) dao.block(ids)
         }
     }
@@ -234,12 +256,13 @@ class OperationQueue @Inject constructor(
     private companion object {
         val RETENTION: Duration = Duration.ofDays(7)
         val PROBLEM_STATES = setOf(OperationStatus.FALLIDA, OperationStatus.CONFLICTO)
+        val PUT_TYPES = setOf(OperationType.CREATE, OperationType.UPDATE)
     }
 }
 
 /** Nombre de la ficha guardado en el `data` de la operación, para los mensajes. */
 fun OperationEntity.nombreFicha(): String? = try {
     JsonParser.parseString(data).asJsonObject.get("nombre")?.asString?.ifBlank { null }
-} catch (e: Exception) {
+} catch (_: Exception) {
     null
 }
