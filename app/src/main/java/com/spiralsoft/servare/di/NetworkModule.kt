@@ -9,14 +9,15 @@ import javax.inject.Named
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
-import com.google.gson.Gson
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.spiralsoft.servare.data.remote.RemoteDataSource
 import com.spiralsoft.servare.data.remote.RetrofitRemoteDataSource
 import com.spiralsoft.servare.data.remote.ServareApi
-import com.spiralsoft.servare.data.remote.apiGson
+import com.spiralsoft.servare.data.remote.apiJson
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -36,14 +37,14 @@ object NetworkProvidesModule {
         .build()
 
     /** Mismo JSON para Retrofit y para el `data` de las operaciones de la cola. */
-    @Provides @Singleton fun gson(): Gson = apiGson()
+    @Provides @Singleton fun json(): Json = apiJson()
 
     @Provides @Singleton
-    fun retrofit(@Named("baseUrl") baseUrl: String, client: OkHttpClient, gson: Gson): Retrofit =
+    fun retrofit(@Named("baseUrl") baseUrl: String, client: OkHttpClient, json: Json): Retrofit =
         Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(client)
-            .addConverterFactory(GsonConverterFactory.create(gson))
+            .addConverterFactory(json.asConverterFactory("application/json; charset=utf-8".toMediaType()))
             .build()
 
     @Provides @Singleton fun servareApi(retrofit: Retrofit): ServareApi = retrofit.create(ServareApi::class.java)
