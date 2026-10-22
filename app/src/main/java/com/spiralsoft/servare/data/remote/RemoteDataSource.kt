@@ -1,8 +1,8 @@
 package com.spiralsoft.servare.data.remote
 
-import com.google.gson.Gson
-import com.google.gson.JsonParseException
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Response
@@ -62,7 +62,7 @@ sealed interface RespuestaRemota<out T> {
 @Singleton
 class RetrofitRemoteDataSource @Inject constructor(
     private val api: ServareApi,
-    private val gson: Gson
+    private val json: Json
 ) : RemoteDataSource {
 
     // RNF-05: el cambio de conectividad debe detectarse en 5 s
@@ -117,7 +117,7 @@ class RetrofitRemoteDataSource @Inject constructor(
         RespuestaRemota.Timeout              // callTimeout de OkHttp o timeout de socket
     } catch (e: IOException) {
         RespuestaRemota.SinRespuesta         // sin red, conexión cortada, sin DNS, TLS
-    } catch (e: JsonParseException) {
+    } catch (e: SerializationException) {
         RespuestaRemota.Rechazada(null, RESPUESTA_INVALIDA)
     }
 
@@ -130,7 +130,7 @@ class RetrofitRemoteDataSource @Inject constructor(
 
     /** Motivo que da el API en `{"error": "..."}`; Retrofit ya dejó el cuerpo en memoria. */
     private fun reasonOf(response: Response<*>): String? = try {
-        response.errorBody()?.string()?.let { gson.fromJson(it, ErrorResponse::class.java)?.error }
+        response.errorBody()?.string()?.let { json.decodeFromString<ErrorResponse>(it).error }
     } catch (e: Exception) {
         null
     }

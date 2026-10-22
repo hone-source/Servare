@@ -1,5 +1,6 @@
 package com.spiralsoft.servare.data.remote
 
+import kotlinx.serialization.Serializable
 import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
@@ -44,17 +45,20 @@ interface ServareApi {
     suspend fun getFicha(@Path("id") entityId: String): Response<Ficha>
 }
 
+@Serializable
 data class HealthResponse(
     val status: String?,
     val time: String?
 )
 
 /** Del resumen que entrega el API solo se usa el id. */
+@Serializable
 data class FichaRemotaResumen(
     val entityId: String?
 )
 
 /** Cuerpo de error del API: `{"error": "..."}`. */
+@Serializable
 data class ErrorResponse(
     val error: String?
 )

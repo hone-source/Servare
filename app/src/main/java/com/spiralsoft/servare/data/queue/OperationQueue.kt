@@ -1,9 +1,12 @@
 package com.spiralsoft.servare.data.queue
 
 import androidx.room.withTransaction
-import com.google.gson.JsonParser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -262,7 +265,7 @@ class OperationQueue @Inject constructor(
 
 /** Nombre de la ficha guardado en el `data` de la operación, para los mensajes. */
 fun OperationEntity.nombreFicha(): String? = try {
-    JsonParser.parseString(data).asJsonObject.get("nombre")?.asString?.ifBlank { null }
+    Json.parseToJsonElement(data).jsonObject["nombre"]?.jsonPrimitive?.contentOrNull?.ifBlank { null }
 } catch (_: Exception) {
     null
 }
