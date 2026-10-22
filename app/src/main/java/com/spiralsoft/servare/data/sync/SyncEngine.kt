@@ -68,7 +68,7 @@ class SyncEngine @Inject constructor(
                 val op = queue.take() ?: return true
                 when (val r = send(op)) {
                     is RespuestaRemota.Exito -> {
-                        queue.complete(op, r.version)
+                        repository.confirmarEnvio(op, r.version)
                         sincronizadas++
                     }
                     RespuestaRemota.SinRespuesta -> {
@@ -121,22 +121,32 @@ class SyncEngine @Inject constructor(
     }
 
     /**
-     * Descarga las fichas del servidor y las entrega al repositorio. Las que tienen operaciones
-     * sin terminar no se piden: un registro con cambios locales no se sobrescribe.
+     * Descarga las fichas del servidor y las entrega al repositorio; las que el servidor ya no tiene
+     * se quitan del dispositivo y se avisa. Las que tienen operaciones sin terminar no se tocan:
+     * un registro con cambios locales no se sobrescribe ni se borra.
      */
     private suspend fun pull() {
         val ids = when (val r = remote.listFichaIds()) {
             is RespuestaRemota.Exito -> r.valor
             else -> return pullFailed(r)
         }
-        for (id in ids) {
-            if (!monitor.isConnected()) return requests.retainPull()
-            if (queue.hasUnfinished(id)) continue
-            when (val r = remote.getFicha(id)) {
-                is RespuestaRemota.Exito -> repository.aplicarRemota(id, r.valor)
-                is RespuestaRemota.Conflicto -> Unit    // se borró en el servidor entre la lista y la consulta
-                else -> return pullFailed(r)
+        // /fichas entrega la lista completa (sin paginar): lo que el dispositivo tiene y el
+        // servidor no, se eliminó allá. Se aplica antes de pedir cada ficha, por si eso se interrumpe
+        val eliminadas = repository.quitarEliminadasEnServidor(repository.idsLocales() - ids.toSet())
+            .toMutableList()
+        try {
+            for (id in ids) {
+                if (!monitor.isConnected()) return requests.retainPull()
+                if (queue.hasUnfinished(id)) continue
+                when (val r = remote.getFicha(id)) {
+                    is RespuestaRemota.Exito -> repository.aplicarRemota(id, r.valor, r.version)
+                    // Se borró en el servidor entre la lista y la consulta
+                    is RespuestaRemota.Conflicto -> eliminadas += repository.quitarEliminadasEnServidor(listOf(id))
+                    else -> return pullFailed(r)
+                }
             }
+        } finally {
+            if (eliminadas.isNotEmpty()) notifier.notificar(ResultadoSync.EliminadasEnServidor(eliminadas))
         }
     }
 
