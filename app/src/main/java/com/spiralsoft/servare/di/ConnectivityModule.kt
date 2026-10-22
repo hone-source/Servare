@@ -16,8 +16,6 @@ import kotlinx.coroutines.SupervisorJob
 import com.spiralsoft.servare.data.connectivity.ConnectivityMonitor
 import com.spiralsoft.servare.data.connectivity.HealthCheckRetryPolicy
 import com.spiralsoft.servare.data.connectivity.NetworkConnectivityMonitor
-import com.spiralsoft.servare.data.sync.PlaceholderSyncScheduler
-import com.spiralsoft.servare.data.sync.SyncScheduler
 
 @Qualifier
 @Retention(AnnotationRetention.RUNTIME)
@@ -28,7 +26,6 @@ annotation class ApplicationScope
 abstract class ConnectivityBindsModule {
     @Binds
     abstract fun monitor(impl: NetworkConnectivityMonitor): ConnectivityMonitor
-    @Binds abstract fun scheduler(impl: PlaceholderSyncScheduler): SyncScheduler
 }
 
 @Module
