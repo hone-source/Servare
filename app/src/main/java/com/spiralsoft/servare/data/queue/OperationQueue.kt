@@ -70,12 +70,13 @@ class OperationQueue @Inject constructor(
     suspend fun enqueueReplacingRejected(
         type: OperationType,
         entityId: String,
-        data: String
+        data: String,
+        baseVersion: Int? = null
     ): String = database.withTransaction {
         val rejected = dao.findFailedByEntity(entityId).firstOrNull { it.isRejectedPut() }
-            ?: return@withTransaction enqueue(type, entityId, data)
+            ?: return@withTransaction enqueue(type, entityId, data, baseVersion)
         val followers = dao.findByIds(dependentsOf(rejected.operationId)).filter { it.entityId == entityId }
-        if (followers.any { it.type !in PUT_TYPES }) return@withTransaction enqueue(type, entityId, data)
+        if (followers.any { it.type !in PUT_TYPES }) return@withTransaction enqueue(type, entityId, data, baseVersion)
 
         val superseded = listOf(rejected) + followers
         val now = now()
