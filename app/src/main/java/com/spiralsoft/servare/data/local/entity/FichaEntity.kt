@@ -4,6 +4,7 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.Instant
+import com.spiralsoft.servare.domain.model.EstadoSincronizacion
 import com.spiralsoft.servare.domain.model.Ficha
 import com.spiralsoft.servare.domain.model.FichaResumen
 
@@ -16,11 +17,12 @@ data class FichaEntity(
     val updatedAt: Instant
 )
 
-fun FichaEntity.toResumen() = FichaResumen(
-    entityId = entityId,
-    nombre = datos.nombre,
-    tipoEspacio = datos.tipoEspacio,
-    comunidad = datos.comunidad,
-    fechaLevantamiento = datos.fechaLevantamiento,
-    pendienteSincronizar = false        // TODO: cola de operaciones
+fun FichaEntity.toResumen(sincronizacion: EstadoSincronizacion) =
+    FichaResumen(
+        entityId = entityId,
+        nombre = datos.nombre,
+        tipoEspacio = datos.tipoEspacio,
+        comunidad = datos.comunidad,
+        fechaLevantamiento = datos.fechaLevantamiento,
+        sincronizacion = sincronizacion
 )
