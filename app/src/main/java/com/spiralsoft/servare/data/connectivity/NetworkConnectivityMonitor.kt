@@ -30,7 +30,7 @@ import com.spiralsoft.servare.di.ApplicationScope
  * - CONECTADO → RED_SIN_SERVIDOR: una petición expira sin respuesta ([onRequestFailedByTimeout]).
  * - cualquiera → SIN_RED: el SO reporta pérdida de la red activa.
  *
- * Entrar en CONECTADO es la "recuperación de conexión" y dispara [SyncScheduler.requestSync].
+ * Entrar en CONECTADO es la "recuperación de conexión" y dispara [SyncScheduler.requestSync] con pull.
  * Se arranca una sola vez con [start] desde ServareApp.
  */
 @Singleton
@@ -84,10 +84,10 @@ class NetworkConnectivityMonitor @Inject constructor(
     }
 
     /**
-     * Lo llamará OperationProcessor / un interceptor cuando una petición expire sin respuesta.
+     * Lo llama el motor de sincronización cuando una petición expira sin respuesta.
      * Solo actúa desde CONECTADO: baja a RED_SIN_SERVIDOR y reanuda los health checks.
      */
-    fun onRequestFailedByTimeout() {
+    override fun onRequestFailedByTimeout() {
         if (_state.compareAndSet(ConnectivityState.CONECTADO, ConnectivityState.RED_SIN_SERVIDOR)) {
             startRecheck()
         }
@@ -123,7 +123,7 @@ class NetworkConnectivityMonitor @Inject constructor(
         if (currentNetwork == null) return // la red se perdió mientras se verificaba
         val previous = _state.getAndUpdate { ConnectivityState.CONECTADO }
         // Solo ENTRAR a CONECTADO es "recuperación de conexión" y dispara la sincronización
-        if (previous != ConnectivityState.CONECTADO) scheduler.requestSync()
+        if (previous != ConnectivityState.CONECTADO) scheduler.requestSync(pull = true)
     }
 
 }
