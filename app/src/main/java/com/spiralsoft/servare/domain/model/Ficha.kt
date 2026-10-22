@@ -3,7 +3,7 @@ package com.spiralsoft.servare.domain.model
 import java.time.LocalDate
 import java.time.LocalTime
 
-// Campos de la ficha técnica de levantamiento (docs/Ficha.md)
+// Campos de la ficha técnica de levantamiento
 data class Ficha(
     // Registro de levantamiento
     val pueblo: PuebloOriginario? = null,
@@ -71,7 +71,7 @@ data class FichaResumen(
     val tipoEspacio: TipoEspacio?,
     val comunidad: String,
     val fechaLevantamiento: LocalDate?,
-    val pendienteSincronizar: Boolean   // RF-08
+    val sincronizacion: EstadoSincronizacion
 )
 
 data class PuntoPoligonal(
