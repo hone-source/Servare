@@ -28,4 +28,10 @@ interface ConnectivityMonitor {
 
     /** `true` solo en [ConnectivityState.CONECTADO]. */
     fun isConnected(): Boolean
+
+    /**
+     * Una petición expiró o quedó sin respuesta.
+     * Desde CONECTADO baja a RED_SIN_SERVIDOR y reanuda los health checks.
+     */
+    fun onRequestFailedByTimeout()
 }
