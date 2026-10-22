@@ -107,7 +107,11 @@ class DefaultStatusNotifier @Inject constructor() : StatusNotifier {
                 titulo = "El servidor no aceptó el cambio",
                 detalle = "$queCambio no se aceptó" +
                     (cambio.detalle?.let { ": ${it.trimEnd('.')}." } ?: ".") +
-                    " Si reintentas se enviarán los mismos datos."
+                    if (cambio.tipo == OperationType.CREATE || cambio.tipo == OperationType.UPDATE) {
+                        " Corrige la ficha y guárdala: se enviará la versión corregida en lugar de esta."
+                    } else {
+                        " Si reintentas se enviarán los mismos datos."
+                    }
             )
             MotivoProblema.INTENTOS_AGOTADOS -> MensajeEstado(
                 titulo = "No se pudo enviar",
