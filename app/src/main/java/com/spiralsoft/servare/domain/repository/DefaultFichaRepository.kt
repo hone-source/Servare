@@ -64,20 +64,20 @@ class DefaultFichaRepository @Inject constructor(
                     )
                 )
                 val tipo = if (existente == null) OperationType.CREATE else OperationType.UPDATE
-                queue.enqueue(tipo, id, gson.toJson(ficha))
+                queue.enqueueReplacingRejected(tipo, id, gson.toJson(ficha))
             }
             scheduler.requestSync()
             ResultadoGuardado.Guardada(id)
-        } catch (e: SQLiteFullException) {
+        } catch (_: SQLiteFullException) {
             ResultadoGuardado.SinEspacio
-        } catch (e: SQLiteException) {
+        } catch (_: SQLiteException) {
             ResultadoGuardado.ErrorAlmacenamiento
         }
     }
 
     override suspend fun obtener(entityId: String): ResultadoCarga = try {
         fichaDao.findById(entityId)?.let { ResultadoCarga.Encontrada(it.datos) } ?: ResultadoCarga.NoEncontrada
-    } catch (e: SQLiteException) {
+    } catch (_: SQLiteException) {
         ResultadoCarga.ErrorAlmacenamiento
     }
 
@@ -95,7 +95,7 @@ class DefaultFichaRepository @Inject constructor(
         } else {
             ResultadoEliminacion.NoEncontrada
         }
-    } catch (e: SQLiteException) {
+    } catch (_: SQLiteException) {
         ResultadoEliminacion.ErrorAlmacenamiento
     }
 
