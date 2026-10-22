@@ -28,5 +28,6 @@ data class OperationEntity(
     val nextAttemptAt: Instant? = null,
     val lastError: String? = null,
     val baseVersion: Int? = null,           // null en CREATE
-    val uncertain: Boolean = false
+    val uncertain: Boolean = false,
+    val finishedAt: Instant? = null         // al pasar a COMPLETADA o DESCARTADA: cuenta la retención
 )
