@@ -26,4 +26,7 @@ sealed interface ResultadoSync {
 
     /** El pull no pudo completarse con el servidor alcanzable; se reintenta en el siguiente ciclo. */
     data object DescargaFallida : ResultadoSync
+
+    /** El pull quitó del dispositivo fichas que ya no existen en el servidor ([nombres], una por ficha). */
+    data class EliminadasEnServidor(val nombres: List<String?>) : ResultadoSync
 }
