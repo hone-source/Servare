@@ -2,8 +2,6 @@ package com.spiralsoft.servare.domain.repository
 
 import android.database.sqlite.SQLiteException
 import androidx.room.withTransaction
-import com.google.gson.Gson
-import com.google.gson.JsonParseException
 import com.spiralsoft.servare.data.local.AppDatabase
 import com.spiralsoft.servare.data.local.dao.FichaDao
 import com.spiralsoft.servare.data.local.entity.FichaEntity
@@ -19,6 +17,8 @@ import com.spiralsoft.servare.domain.model.Ficha
 import com.spiralsoft.servare.domain.model.MotivoProblema
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
@@ -29,7 +29,7 @@ class DefaultSincronizacionRepository @Inject constructor(
     private val queue: OperationQueue,
     private val scheduler: SyncScheduler,
     private val retryPolicy: OperationRetryPolicy,
-    private val gson: Gson,
+    private val json: Json,
     private val clock: Clock
 ) : SincronizacionRepository {
 
@@ -43,7 +43,7 @@ class DefaultSincronizacionRepository @Inject constructor(
         } else {
             ResultadoDecision.YaResuelto
         }
-    } catch (e: SQLiteException) {
+    } catch (_: SQLiteException) {
         ResultadoDecision.ErrorAlmacenamiento
     }
 
@@ -60,7 +60,7 @@ class DefaultSincronizacionRepository @Inject constructor(
             scheduler.requestSync(pull = true)
             ResultadoDecision.Hecha
         }
-    } catch (e: SQLiteException) {
+    } catch (_: SQLiteException) {
         ResultadoDecision.ErrorAlmacenamiento
     }
 
@@ -80,8 +80,8 @@ class DefaultSincronizacionRepository @Inject constructor(
     }
 
     private fun OperationEntity.fichaGuardada(): Ficha? = try {
-        gson.fromJson(data, Ficha::class.java)
-    } catch (e: JsonParseException) {
+        json.decodeFromString<Ficha>(data)
+    } catch (_: SerializationException) {
         null
     }
 
