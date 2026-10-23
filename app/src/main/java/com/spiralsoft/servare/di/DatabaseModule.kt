@@ -14,12 +14,10 @@ import com.spiralsoft.servare.data.local.AppDatabase
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
     @Provides @Singleton
-    fun database(@ApplicationContext ctx: Context):
-            AppDatabase = Room.databaseBuilder(
-        ctx,
-        AppDatabase::class.java,
-        "servare.db").build()
+    fun database(@ApplicationContext ctx: Context): AppDatabase =
+        Room.databaseBuilder(ctx, AppDatabase::class.java, "servare.db").build()
 
     @Provides fun fichaDao(db: AppDatabase) = db.fichaDao()
 
+    @Provides fun operationDao(db: AppDatabase) = db.operationDao()
 }
