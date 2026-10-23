@@ -25,7 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.spiralsoft.servare.ui.composable.ListaVacia
 import com.spiralsoft.servare.ui.composable.TarjetaFicha
 import com.spiralsoft.servare.ui.viewModel.FichaListViewModel
@@ -56,7 +56,6 @@ fun ListFichaScreen(
         }
     }
 
-
     Scaffold(
         topBar = { TopAppBar(title = { Text("Fichas de levantamiento") }) },
         floatingActionButton = {
@@ -85,6 +84,7 @@ fun ListFichaScreen(
                             onEditar = {
                                 onEditarFicha(ficha.entityId)
                             },
+                            onEliminar = { viewModel.eliminar(ficha.entityId) },
                         )
                     }
                 }
