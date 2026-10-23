@@ -1,8 +1,8 @@
 package com.spiralsoft.servare.domain.repository
 
+import kotlinx.coroutines.flow.Flow
 import com.spiralsoft.servare.domain.model.Ficha
 import com.spiralsoft.servare.domain.model.FichaResumen
-import kotlinx.coroutines.flow.Flow
 
 interface FichaRepository {
     fun observarResumenes(): Flow<List<FichaResumen>>
@@ -12,20 +12,8 @@ interface FichaRepository {
 
     suspend fun obtener(entityId: String): ResultadoCarga
 
+    /** Quita la ficha del dispositivo y deja su eliminación en la cola. */
     suspend fun eliminar(entityId: String): ResultadoEliminacion
-
-    /** Pull: la ficha tal como la tiene el servidor, con su [version] (ETag) si la envía. */
-    suspend fun aplicarRemota(entityId: String, ficha: Ficha, version: Int?)
-
-    /** Ids de las fichas guardadas en el dispositivo. */
-    suspend fun idsLocales(): Set<String>
-
-    /**
-     * Pull: el servidor ya no tiene estas fichas y se quitan del dispositivo, salvo las que tienen
-     * operaciones sin terminar (esas las resuelve el push). Devuelve el nombre de cada ficha quitada.
-     */
-    suspend fun quitarEliminadasEnServidor(entityIds: Collection<String>): List<String?>
-
 }
 
 sealed interface ResultadoGuardado {
@@ -42,7 +30,7 @@ sealed interface ResultadoCarga {
 }
 
 sealed interface ResultadoEliminacion {
-    data object Eliminada : ResultadoEliminacion
+    data class Eliminada(val nombre: String) : ResultadoEliminacion
     data object NoEncontrada : ResultadoEliminacion
     data object ErrorAlmacenamiento : ResultadoEliminacion
 }
