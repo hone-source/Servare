@@ -10,7 +10,7 @@ data class Ficha(
     val nucleoAgrario: String = "",
     val comunidad: String = "",
     val numeroLevantamiento: String = "",
-    val fechaLevantamiento: String? = "",
+    val fechaLevantamiento: String? = null,
 
     // 1. Datos generales
     val tipoEspacio: TipoEspacio? = null,
@@ -71,6 +71,7 @@ data class FichaResumen(
     val tipoEspacio: TipoEspacio?,
     val comunidad: String,
     val fechaLevantamiento: String?,
+    val pendiente: Boolean // tiene operaciones sin confirmar por el servidor
 )
 
 @Serializable
