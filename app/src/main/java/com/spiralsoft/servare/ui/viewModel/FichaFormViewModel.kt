@@ -9,17 +9,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import com.spiralsoft.servare.domain.model.Ficha
 import com.spiralsoft.servare.domain.repository.FichaRepository
-import com.spiralsoft.servare.domain.repository.ResultadoCarga
 import com.spiralsoft.servare.domain.repository.ResultadoGuardado
 import com.spiralsoft.servare.ui.viewModel.state.FichaFormState
 
 @HiltViewModel
 class FichaFormViewModel @Inject constructor(
     private val repository: FichaRepository,
-    savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val json: Json
 ) : ViewModel() {
 
     // Argumento de la ruta "form?entityId={entityId}"; null = ficha nueva
@@ -30,33 +31,13 @@ class FichaFormViewModel @Inject constructor(
     )
     val form: StateFlow<FichaFormState> = _form.asStateFlow()
 
-    init {
-        entityIdEditar?.let(::cargar)
-    }
 
-    private fun cargar(entityId: String) {
-        viewModelScope.launch {
-            val resultado = repository.obtener(entityId)
-            _form.update { actual ->
-                when (resultado) {
-                    is ResultadoCarga.Encontrada -> actual.copy(ficha = resultado.ficha, cargando = false)
-                    ResultadoCarga.NoEncontrada -> actual.copy(
-                        cargando = false,
-                        errorCarga = "Esta ficha ya no está en el dispositivo."
-                    )
-                    ResultadoCarga.ErrorAlmacenamiento -> actual.copy(
-                        cargando = false,
-                        errorCarga = "No se pudo leer la ficha del dispositivo. Vuelve e intenta de nuevo."
-                    )
-                }
-            }
+    fun updateFicha(cambio: (Ficha) -> Ficha) {
+        _form.update { estado ->
+            val ficha = cambio(estado.ficha)
+            // El error desaparece en cuanto el usuario escribe el nombre
+            estado.copy(ficha = ficha, errorNombre = estado.errorNombre?.takeIf { ficha.nombre.isBlank() })
         }
-    }
-
-    fun updateFicha(cambio: (Ficha) -> Ficha) = _form.update { estado ->
-        val ficha = cambio(estado.ficha)
-        // El error desaparece en cuanto el usuario escribe el nombre
-        estado.copy(ficha = ficha, errorNombre = estado.errorNombre?.takeIf { ficha.nombre.isBlank() })
     }
 
     fun guardar() {
@@ -69,7 +50,10 @@ class FichaFormViewModel @Inject constructor(
             _form.update { actual ->
                 when (resultado) {
                     is ResultadoGuardado.Guardada -> actual.copy(
-                        entityId = resultado.entityId, guardando = false, guardada = true
+                        entityId = resultado.entityId,
+                        fichaOriginal = estado.ficha,
+                        guardando = false,
+                        guardada = true
                     )
                     ResultadoGuardado.FaltaNombre -> actual.copy(
                         guardando = false,
