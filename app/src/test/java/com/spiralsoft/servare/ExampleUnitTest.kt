@@ -1,4 +1,4 @@
-package com.spiralsoft.myapplication
+package com.spiralsoft.servare
 
 import org.junit.Test
 
