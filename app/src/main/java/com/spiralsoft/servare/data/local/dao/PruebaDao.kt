@@ -8,8 +8,31 @@ import com.spiralsoft.servare.data.local.entity.PruebaEntity
 
 @Dao
 interface PruebaDao {
-    @Query("SELECT * FROM pruebas ORDER BY createdAt DESC")
+    // Lee también las eliminaciones: el Flow emite cuando se marca una prueba como eliminada
+    @Query(
+        """
+        SELECT * FROM pruebas p
+        WHERE NOT EXISTS (
+            SELECT 1 FROM eliminaciones e
+            WHERE e.entityType = 'PRUEBA' AND e.entityId = p.entityId
+        )
+        ORDER BY p.createdAt DESC
+        """
+    )
     fun observarTodas(): Flow<List<PruebaEntity>>
+
+    // Excluye las marcadas como eliminadas
+    @Query(
+        """
+        SELECT * FROM pruebas p
+        WHERE p.entityId = :entityId
+        AND NOT EXISTS (
+            SELECT 1 FROM eliminaciones e
+            WHERE e.entityType = 'PRUEBA' AND e.entityId = p.entityId
+        )
+        """
+    )
+    suspend fun findActivaById(entityId: String): PruebaEntity?
 
     @Insert
     suspend fun insert(prueba: PruebaEntity)
