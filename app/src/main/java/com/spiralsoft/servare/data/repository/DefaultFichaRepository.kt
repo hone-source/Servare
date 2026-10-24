@@ -17,6 +17,7 @@ import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.Ficha
 import com.spiralsoft.servare.domain.model.FichaResumen
+import com.spiralsoft.servare.domain.model.TipoEntidad
 import com.spiralsoft.servare.domain.model.TipoOperacion
 import com.spiralsoft.servare.domain.repository.FichaRepository
 import com.spiralsoft.servare.domain.repository.ResultadoCarga
@@ -60,6 +61,7 @@ class DefaultFichaRepository @Inject constructor(
                     OperationEntity(
                         operationId = UUID.randomUUID().toString(),
                         type = if (existente == null) TipoOperacion.CREAR else TipoOperacion.ACTUALIZAR,
+                        entityType = TipoEntidad.FICHA,
                         entityId = id,
                         data = datos,
                         createdAt = ahora,
@@ -96,6 +98,7 @@ class DefaultFichaRepository @Inject constructor(
                 OperationEntity(
                     operationId = UUID.randomUUID().toString(),
                     type = TipoOperacion.ELIMINAR,
+                    entityType = TipoEntidad.FICHA,
                     entityId = entityId,
                     // La operación conserva la última versión de la ficha: si el borrado falla, no se pierde
                     data = existente.datos,
