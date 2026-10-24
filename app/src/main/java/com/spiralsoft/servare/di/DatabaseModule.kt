@@ -29,6 +29,5 @@ object DatabaseModule {
     @Provides fun eliminacionDao(db: AppDatabase) = db.eliminacionDao()
 
     //Dao para las operaciones propias del sistema
-    @Provides fun fichaDao(db: AppDatabase) = db.fichaDao()
 
 }
