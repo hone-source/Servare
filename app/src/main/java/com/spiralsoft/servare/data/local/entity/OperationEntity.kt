@@ -18,7 +18,6 @@ data class OperationEntity(
     val entityType: TipoEntidad,
     val entityId: String,
     val dependsOn: String? = null,
-    val data: String? = null,               // JSON de la ficha; null en pruebas //TODO borrar
     val createdAt: Long,                    // epoch ms; ordena las operaciones de una misma entidad
     val status: EstadoOperacion = EstadoOperacion.PENDIENTE,
     val attemptCount: Int = 0,
