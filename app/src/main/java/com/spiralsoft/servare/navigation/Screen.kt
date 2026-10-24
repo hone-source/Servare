@@ -7,4 +7,6 @@ sealed class Screen(val route: String) {
             return if (entityId != null) "form?entityId=$entityId" else "form"
         }
     }
+    data object PruebaList : Screen("list")
+    data object PruebaForm : Screen("form")
 }
