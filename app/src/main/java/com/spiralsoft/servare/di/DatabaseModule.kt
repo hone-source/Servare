@@ -20,4 +20,6 @@ object DatabaseModule {
     @Provides fun fichaDao(db: AppDatabase) = db.fichaDao()
 
     @Provides fun operationDao(db: AppDatabase) = db.operationDao()
+
+    @Provides fun pruebaDao(db: AppDatabase) = db.pruebaDao()
 }
