@@ -9,16 +9,20 @@ import com.spiralsoft.servare.domain.model.FichaResumen
 
 @Dao
 interface FichaDao {
-    // Lee también la cola: el Flow emite cuando cambia cualquiera de las dos tablas
+    // Lee también la cola y las eliminaciones: el Flow emite cuando cambia cualquiera de las tres tablas
     @Query(
         """
         SELECT f.entityId, f.nombre, f.tipoEspacio, f.comunidad, f.fechaLevantamiento,
             EXISTS(
                 SELECT 1 FROM operaciones o
-                WHERE o.entityId = f.entityId
+                WHERE o.entityType = 'FICHA' AND o.entityId = f.entityId
                 AND o.status IN ('PENDIENTE', 'PROCESANDO', 'REINTENTABLE')
             ) AS pendiente
         FROM fichas f
+        WHERE NOT EXISTS (
+            SELECT 1 FROM eliminaciones e
+            WHERE e.entityType = 'FICHA' AND e.entityId = f.entityId
+        )
         ORDER BY f.updatedAt DESC
         """
     )
@@ -26,6 +30,19 @@ interface FichaDao {
 
     @Query("SELECT * FROM fichas WHERE entityId = :entityId")
     suspend fun findById(entityId: String): FichaEntity?
+
+    // Excluye las marcadas como eliminadas
+    @Query(
+        """
+        SELECT * FROM fichas f
+        WHERE f.entityId = :entityId
+        AND NOT EXISTS (
+            SELECT 1 FROM eliminaciones e
+            WHERE e.entityType = 'FICHA' AND e.entityId = f.entityId
+        )
+        """
+    )
+    suspend fun findActivaById(entityId: String): FichaEntity?
 
     @Upsert
     suspend fun upsert(ficha: FichaEntity)
