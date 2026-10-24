@@ -53,6 +53,7 @@ fun ListFichaScreen(
     LaunchedEffect(state.mensaje) {
         state.mensaje?.let {
             snackbar.showSnackbar(it)
+            viewModel.mensajeMostrado()
         }
     }
 
