@@ -13,13 +13,22 @@ import com.spiralsoft.servare.data.local.AppDatabase
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
+
+    @Provides fun pruebaDao(db: AppDatabase) = db.pruebaDao() //Para pruebas
+
     @Provides @Singleton
     fun database(@ApplicationContext ctx: Context): AppDatabase =
-        Room.databaseBuilder(ctx, AppDatabase::class.java, "servare.db").build()
-
-    @Provides fun fichaDao(db: AppDatabase) = db.fichaDao()
+        Room.databaseBuilder(
+            ctx,
+            AppDatabase::class.java,
+            "servare.db"
+        ).build()
 
     @Provides fun operationDao(db: AppDatabase) = db.operationDao()
 
-    @Provides fun pruebaDao(db: AppDatabase) = db.pruebaDao()
+    @Provides fun eliminacionDao(db: AppDatabase) = db.eliminacionDao()
+
+    //Dao para las operaciones propias del sistema
+    @Provides fun fichaDao(db: AppDatabase) = db.fichaDao()
+
 }
