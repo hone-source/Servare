@@ -10,8 +10,10 @@ import java.time.Clock
 import java.util.UUID
 import javax.inject.Inject
 import com.spiralsoft.servare.data.local.AppDatabase
+import com.spiralsoft.servare.data.local.dao.EliminacionDao
 import com.spiralsoft.servare.data.local.dao.FichaDao
 import com.spiralsoft.servare.data.local.dao.OperationDao
+import com.spiralsoft.servare.data.local.entity.EliminacionEntity
 import com.spiralsoft.servare.data.local.entity.FichaEntity
 import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.domain.model.EstadoOperacion
@@ -28,6 +30,7 @@ class DefaultFichaRepository @Inject constructor(
     private val database: AppDatabase,
     private val fichaDao: FichaDao,
     private val operationDao: OperationDao,
+    private val eliminacionDao: EliminacionDao,
     private val json: Json,
     private val clock: Clock
 ) : FichaRepository {
@@ -57,18 +60,20 @@ class DefaultFichaRepository @Inject constructor(
                         version = existente?.version
                     )
                 )
-                operationDao.insert(
-                    OperationEntity(
-                        operationId = UUID.randomUUID().toString(),
-                        type = if (existente == null) TipoOperacion.CREAR else TipoOperacion.ACTUALIZAR,
-                        entityType = TipoEntidad.FICHA,
-                        entityId = id,
-                        data = datos,
-                        createdAt = ahora,
-                        status = EstadoOperacion.PENDIENTE,
-                        baseVersion = existente?.version
+                // Si ya hay una operación sin enviar, esa enviará el estado actual de la ficha
+                if (operationDao.buscarAgrupable(TipoEntidad.FICHA, id) == null) {
+                    operationDao.insert(
+                        OperationEntity(
+                            operationId = UUID.randomUUID().toString(),
+                            type = if (existente == null) TipoOperacion.CREAR else TipoOperacion.ACTUALIZAR,
+                            entityType = TipoEntidad.FICHA,
+                            entityId = id,
+                            createdAt = ahora,
+                            status = EstadoOperacion.PENDIENTE,
+                            baseVersion = existente?.version
+                        )
                     )
-                )
+                }
             }
             // TODO requestSync() cuando exista el motor de sincronización (fuera de la transacción)
             ResultadoGuardado.Guardada(id)
@@ -80,7 +85,7 @@ class DefaultFichaRepository @Inject constructor(
     }
 
     override suspend fun obtener(entityId: String): ResultadoCarga = try {
-        fichaDao.findById(entityId)
+        fichaDao.findActivaById(entityId)
             ?.let { ResultadoCarga.Encontrada(json.decodeFromString<Ficha>(it.datos)) }
             ?: ResultadoCarga.NoEncontrada
     } catch (_: SQLiteException) {
@@ -90,25 +95,26 @@ class DefaultFichaRepository @Inject constructor(
     }
 
     override suspend fun eliminar(entityId: String): ResultadoEliminacion = try {
-        // Outbox: el borrado y su operación PENDIENTE en una sola transacción
+        // Outbox: la marca de borrado y su operación PENDIENTE en una sola transacción.
+        // La ficha sigue en su tabla: si el borrado falla en el servidor, no se pierde
         val eliminada = database.withTransaction {
-            val existente = fichaDao.findById(entityId) ?: return@withTransaction null
-            fichaDao.deleteById(entityId)
+            val existente = fichaDao.findActivaById(entityId) ?: return@withTransaction null
+            val ahora = clock.millis()
+            eliminacionDao.insert(EliminacionEntity(TipoEntidad.FICHA, entityId, ahora))
             operationDao.insert(
                 OperationEntity(
                     operationId = UUID.randomUUID().toString(),
                     type = TipoOperacion.ELIMINAR,
                     entityType = TipoEntidad.FICHA,
                     entityId = entityId,
-                    // La operación conserva la última versión de la ficha: si el borrado falla, no se pierde
-                    data = existente.datos,
-                    createdAt = clock.millis(),
+                    createdAt = ahora,
                     status = EstadoOperacion.PENDIENTE,
                     baseVersion = existente.version
                 )
             )
             existente
         }
+        // TODO al completar el ELIMINAR, el motor borra la ficha (deleteById) y su eliminación en una transacción
         // TODO requestSync() cuando exista el motor de sincronización (fuera de la transacción)
         eliminada?.let { ResultadoEliminacion.Eliminada(it.nombre) } ?: ResultadoEliminacion.NoEncontrada
     } catch (_: SQLiteException) {
