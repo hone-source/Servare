@@ -5,9 +5,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.spiralsoft.servare.ui.screen.FormPruebaScreen
 import com.spiralsoft.servare.ui.screen.ListPruebaScreen
 
@@ -29,16 +31,24 @@ fun AppNavHost(
             val mensaje by entry.savedStateHandle.getStateFlow<String?>(MENSAJE, null).collectAsState()
             ListPruebaScreen(
                 onVolver = { navController.popBackStack() },
-                onNuevo = { navController.navigate(Screen.PruebaForm.route) },
+                onNuevo = { navController.navigate(Screen.PruebaForm.createRoute()) },
+                onEditar = { entityId -> navController.navigate(Screen.PruebaForm.createRoute(entityId)) },
                 mensaje = mensaje,
                 onMensajeMostrado = { entry.savedStateHandle[MENSAJE] = null }
             )
         }
-        composable(Screen.PruebaForm.route) {
+        composable(
+            Screen.PruebaForm.route,
+            arguments = listOf(navArgument("entityId") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            })
+        ) {
             FormPruebaScreen(
                 onVolver = { navController.popBackStack() },
-                onGuardada = {
-                    navController.previousBackStackEntry?.savedStateHandle?.set(MENSAJE, "Registro guardado en el dispositivo")
+                onSalir = { mensaje ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set(MENSAJE, mensaje)
                     navController.popBackStack()
                 }
             )
