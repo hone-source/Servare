@@ -10,8 +10,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.spiralsoft.servare.ui.screen.FormFichaScreen
-import com.spiralsoft.servare.ui.screen.ListFichaScreen
+import com.spiralsoft.servare.ui.screen.FormPruebaScreen
+import com.spiralsoft.servare.ui.screen.ListPruebaScreen
 
 private const val MENSAJE = "mensaje"
 
@@ -19,35 +19,36 @@ private const val MENSAJE = "mensaje"
 fun AppNavHost(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
-    startDestination: String = Screen.List.route
+    startDestination: String = Screen.PruebaList.route
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination,
         modifier = modifier
     ) {
-        composable(Screen.List.route) { entry ->
-            // Resultado que deja el formulario al guardar (se muestra una vez)
+        // Pantallas de prueba: formulario simple
+        composable(Screen.PruebaList.route) { entry ->
             val mensaje by entry.savedStateHandle.getStateFlow<String?>(MENSAJE, null).collectAsState()
-            ListFichaScreen(
-                onNuevaFicha = { navController.navigate(Screen.Form.createRoute()) },
-                onEditarFicha = { navController.navigate(Screen.Form.createRoute(it)) },
+            ListPruebaScreen(
+                onVolver = { navController.popBackStack() },
+                onNuevo = { navController.navigate(Screen.PruebaForm.createRoute()) },
+                onEditar = { entityId -> navController.navigate(Screen.PruebaForm.createRoute(entityId)) },
                 mensaje = mensaje,
                 onMensajeMostrado = { entry.savedStateHandle[MENSAJE] = null }
             )
         }
         composable(
-            Screen.Form.route,
+            Screen.PruebaForm.route,
             arguments = listOf(navArgument("entityId") {
                 type = NavType.StringType
                 nullable = true
                 defaultValue = null
             })
         ) {
-            FormFichaScreen(
+            FormPruebaScreen(
                 onVolver = { navController.popBackStack() },
-                onGuardada = {
-                    navController.previousBackStackEntry?.savedStateHandle?.set(MENSAJE, "Ficha guardada en el dispositivo")
+                onSalir = { mensaje ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set(MENSAJE, mensaje)
                     navController.popBackStack()
                 }
             )
