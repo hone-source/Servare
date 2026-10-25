@@ -35,6 +35,17 @@ interface PruebaDao {
     )
     suspend fun findActivaById(entityId: String): PruebaEntity?
 
+    // Incluye las marcadas como eliminadas, un CREAR pendiente debe enviarse aunque se haya borrado después
+    @Query("SELECT * FROM pruebas WHERE entityId = :entityId")
+    suspend fun findById(entityId: String): PruebaEntity?
+
+    // Solo la versión: no pisa una edición hecha mientras la operación estaba en vuelo
+    @Query("UPDATE pruebas SET version = :version WHERE entityId = :entityId")
+    suspend fun actualizarVersion(entityId: String, version: Int)
+
+    @Query("DELETE FROM pruebas WHERE entityId = :entityId")
+    suspend fun deleteById(entityId: String)
+
     @Insert
     suspend fun insert(prueba: PruebaEntity)
 
