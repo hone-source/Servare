@@ -39,15 +39,15 @@ import com.spiralsoft.servare.ui.viewModel.PruebaFormViewModel
 @Composable
 fun FormPruebaScreen(
     onVolver: () -> Unit,
-    onGuardada: () -> Unit,
+    onSalir: (mensaje: String) -> Unit,
     viewModel: PruebaFormViewModel = hiltViewModel()
 ) {
     val form by viewModel.form.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var confirmarSalida by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(form.guardada) {
-        if (form.guardada) onGuardada()
+    LaunchedEffect(form.mensajeSalida) {
+        form.mensajeSalida?.let(onSalir)
     }
 
     LaunchedEffect(form.mensaje) {
@@ -58,14 +58,19 @@ fun FormPruebaScreen(
     }
 
     // Lo capturado no se pierde en silencio: salir con cambios pide confirmación
-    val salir = { if (form.hayCambios && !form.guardada) confirmarSalida = true else onVolver() }
+    val salir = { if (form.hayCambios && form.mensajeSalida == null) confirmarSalida = true else onVolver() }
     BackHandler(onBack = salir)
 
     if (confirmarSalida) {
         AlertDialog(
             onDismissRequest = { confirmarSalida = false },
             title = { Text("¿Descartar cambios?") },
-            text = { Text("Este registro no se ha guardado en el dispositivo.") },
+            text = {
+                Text(
+                    if (form.editando) "Los cambios no se han guardado en el dispositivo."
+                    else "Este registro no se ha guardado en el dispositivo."
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmarSalida = false
@@ -79,14 +84,14 @@ fun FormPruebaScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nuevo registro de prueba") },
+                title = { Text(if (form.editando) "Editar registro de prueba" else "Nuevo registro de prueba") },
                 navigationIcon = {
                     IconButton(onClick = salir) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 actions = {
-                    TextButton(onClick = viewModel::guardar, enabled = !form.guardando) { Text("Guardar") }
+                    TextButton(onClick = viewModel::guardar, enabled = !form.guardando && !form.cargando) { Text("Guardar") }
                 }
             )
         },
