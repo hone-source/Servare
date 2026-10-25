@@ -22,6 +22,7 @@ import com.spiralsoft.servare.domain.model.TipoOperacion
 import com.spiralsoft.servare.domain.repository.PruebaRepository
 import com.spiralsoft.servare.domain.repository.ResultadoEliminacionPrueba
 import com.spiralsoft.servare.domain.repository.ResultadoGuardadoPrueba
+import com.spiralsoft.servare.domain.repository.ResultadoObtencionPrueba
 
 class DefaultPruebaRepository @Inject constructor(
     private val database: AppDatabase,
@@ -31,8 +32,17 @@ class DefaultPruebaRepository @Inject constructor(
     private val clock: Clock
 ) : PruebaRepository {
 
-    override fun observarTodas(): Flow<List<Prueba>> = pruebaDao.observarTodas().map { lista ->
-        lista.map { Prueba(it.entityId, it.titulo, it.texto, it.numero, it.createdAt) }
+    override fun observarTodas(): Flow<List<Prueba>>
+        = pruebaDao.observarTodas().map { lista ->
+            lista.map { it.aDominio() }
+    }
+
+    override suspend fun obtener(entityId: String): ResultadoObtencionPrueba = try {
+        pruebaDao.findActivaById(entityId)?.let {
+            ResultadoObtencionPrueba.Encontrada(it.aDominio()) }
+            ?: ResultadoObtencionPrueba.NoEncontrada
+    } catch (_: SQLiteException) {
+        ResultadoObtencionPrueba.ErrorAlmacenamiento
     }
 
     override suspend fun guardar(titulo: String, texto: String, numero: Int): ResultadoGuardadoPrueba {
@@ -72,6 +82,45 @@ class DefaultPruebaRepository @Inject constructor(
         }
     }
 
+    override suspend fun actualizar(
+        entityId: String,
+        titulo: String,
+        texto: String,
+        numero: Int
+    ): ResultadoGuardadoPrueba {
+        if (titulo.isBlank()) return ResultadoGuardadoPrueba.FaltaTitulo
+
+        return try {
+            // Outbox: el cambio y su operación PENDIENTE en una sola transacción
+            val actualizada = database.withTransaction {
+                val existente = pruebaDao.findActivaById(entityId) ?: return@withTransaction false
+                pruebaDao.update(existente.copy(titulo = titulo.trim(), texto = texto, numero = numero))
+                // Si ya hay una operación sin enviar (CREAR o ACTUALIZAR), enviará este contenido al leerlo
+                if (operationDao.buscarAgrupable(TipoEntidad.PRUEBA, entityId) == null) {
+                    val ahora = clock.millis()
+                    operationDao.insert(
+                        OperationEntity(
+                            operationId = UUID.randomUUID().toString(),
+                            type = TipoOperacion.ACTUALIZAR,
+                            entityType = TipoEntidad.PRUEBA,
+                            entityId = entityId,
+                            createdAt = ahora,
+                            status = EstadoOperacion.PENDIENTE,
+                            baseVersion = existente.version
+                        )
+                    )
+                }
+                true
+            }
+            // TODO requestSync() cuando exista el motor de sincronización (fuera de la transacción)
+            if (actualizada) ResultadoGuardadoPrueba.Guardada(entityId) else ResultadoGuardadoPrueba.NoEncontrada
+        } catch (_: SQLiteFullException) {
+            ResultadoGuardadoPrueba.SinEspacio
+        } catch (_: SQLiteException) {
+            ResultadoGuardadoPrueba.ErrorAlmacenamiento
+        }
+    }
+
     override suspend fun eliminar(entityId: String): ResultadoEliminacionPrueba = try {
         // Outbox: la marca de borrado y su operación PENDIENTE en una sola transacción.
         // La prueba sigue en su tabla: si el borrado falla en el servidor, no se pierde
@@ -99,3 +148,5 @@ class DefaultPruebaRepository @Inject constructor(
         ResultadoEliminacionPrueba.ErrorAlmacenamiento
     }
 }
+
+private fun PruebaEntity.aDominio() = Prueba(entityId, titulo, texto, numero, createdAt)
