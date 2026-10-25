@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo debug: confía en la CA de mkcert del backend local -->
+<network-security-config>
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="@raw/mkcert_root_ca" />
+            <certificates src="system" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>
