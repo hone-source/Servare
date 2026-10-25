@@ -44,5 +44,5 @@ docs/
 .kotlin/
 
 # CA local de mkcert
-/app/src/debug/res/raw/dev_ca.pem
+/app/src/debug/res/raw/mkcert_root_ca.pem
 *-key.pem
