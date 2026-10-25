@@ -1,5 +1,6 @@
 package com.spiralsoft.servare.ui.viewModel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,15 +12,49 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.spiralsoft.servare.domain.repository.PruebaRepository
 import com.spiralsoft.servare.domain.repository.ResultadoGuardadoPrueba
+import com.spiralsoft.servare.domain.repository.ResultadoObtencionPrueba
 import com.spiralsoft.servare.ui.viewModel.state.PruebaFormState
 
 @HiltViewModel
 class PruebaFormViewModel @Inject constructor(
-    private val repository: PruebaRepository
+    private val repository: PruebaRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _form = MutableStateFlow(PruebaFormState())
+    // Argumento de navegación: null al crear, el registro a editar si no
+    private val entityId: String? = savedStateHandle["entityId"]
+
+    private val _form = MutableStateFlow(PruebaFormState(editando = entityId != null, cargando = entityId != null))
     val form: StateFlow<PruebaFormState> = _form.asStateFlow()
+
+    init {
+        entityId?.let(::cargar)
+    }
+
+    private fun cargar(entityId: String) {
+        viewModelScope.launch {
+            val resultado = repository.obtener(entityId)
+            _form.update { actual ->
+                when (resultado) {
+                    is ResultadoObtencionPrueba.Encontrada -> with(resultado.prueba) {
+                        actual.copy(
+                            cargando = false,
+                            titulo = titulo,
+                            texto = texto,
+                            numero = numero.toString(),
+                            tituloOriginal = titulo,
+                            textoOriginal = texto,
+                            numeroOriginal = numero.toString()
+                        )
+                    }
+                    ResultadoObtencionPrueba.NoEncontrada ->
+                        actual.copy(mensajeSalida = "Este registro ya no está en el dispositivo")
+                    ResultadoObtencionPrueba.ErrorAlmacenamiento ->
+                        actual.copy(mensajeSalida = "No se pudo abrir el registro. Intenta de nuevo.")
+                }
+            }
+        }
+    }
 
     // Cada error desaparece en cuanto el usuario corrige su campo
     fun updateTitulo(titulo: String) = _form.update {
@@ -34,7 +69,7 @@ class PruebaFormViewModel @Inject constructor(
 
     fun guardar() {
         val estado = _form.value
-        if (estado.guardando) return
+        if (estado.guardando || estado.cargando) return
 
         val numero = estado.numero.trim().toIntOrNull()
         if (numero == null) {
@@ -49,10 +84,22 @@ class PruebaFormViewModel @Inject constructor(
 
         _form.update { it.copy(guardando = true) }
         viewModelScope.launch {
-            val resultado = repository.guardar(estado.titulo, estado.texto, numero)
+            val resultado = if (entityId == null) {
+                repository.guardar(estado.titulo, estado.texto, numero)
+            } else {
+                repository.actualizar(entityId, estado.titulo, estado.texto, numero)
+            }
             _form.update { actual ->
                 when (resultado) {
-                    is ResultadoGuardadoPrueba.Guardada -> actual.copy(guardando = false, guardada = true)
+                    is ResultadoGuardadoPrueba.Guardada -> actual.copy(
+                        guardando = false,
+                        mensajeSalida = if (entityId == null) "Registro guardado en el dispositivo"
+                        else "Cambios guardados en el dispositivo"
+                    )
+                    ResultadoGuardadoPrueba.NoEncontrada -> actual.copy(
+                        guardando = false,
+                        mensajeSalida = "Este registro se eliminó del dispositivo; los cambios no se guardaron"
+                    )
                     ResultadoGuardadoPrueba.FaltaTitulo -> actual.copy(
                         guardando = false,
                         errorTitulo = "Escribe el título",
