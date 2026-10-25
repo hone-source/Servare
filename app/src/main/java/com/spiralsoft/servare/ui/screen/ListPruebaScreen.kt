@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.twotone.Delete
+import androidx.compose.material.icons.twotone.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -43,6 +44,7 @@ import com.spiralsoft.servare.ui.viewModel.PruebaListViewModel
 fun ListPruebaScreen(
     onVolver: () -> Unit,
     onNuevo: () -> Unit,
+    onEditar: (entityId: String) -> Unit,
     mensaje: String?,
     onMensajeMostrado: () -> Unit,
     viewModel: PruebaListViewModel = hiltViewModel()
@@ -100,7 +102,11 @@ fun ListPruebaScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(state.pruebas, key = { it.entityId }) { prueba ->
-                    TarjetaPrueba(prueba, onEliminar = { viewModel.eliminar(prueba.entityId) })
+                    TarjetaPrueba(
+                        prueba,
+                        onEditar = { onEditar(prueba.entityId) },
+                        onEliminar = { viewModel.eliminar(prueba.entityId) }
+                    )
                 }
             }
         }
@@ -108,7 +114,11 @@ fun ListPruebaScreen(
 }
 
 @Composable
-private fun TarjetaPrueba(prueba: Prueba, onEliminar: () -> Unit) {
+private fun TarjetaPrueba(
+    prueba: Prueba,
+    onEditar: () -> Unit,
+    onEliminar: () -> Unit
+) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -117,6 +127,9 @@ private fun TarjetaPrueba(prueba: Prueba, onEliminar: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(prueba.titulo, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 Text(prueba.numero.toString(), style = MaterialTheme.typography.titleMedium)
+                IconButton(onClick = onEditar) {
+                    Icon(Icons.TwoTone.Edit, contentDescription = "Editar")
+                }
                 IconButton(onClick = onEliminar) {
                     Icon(Icons.TwoTone.Delete, contentDescription = "Eliminar")
                 }
