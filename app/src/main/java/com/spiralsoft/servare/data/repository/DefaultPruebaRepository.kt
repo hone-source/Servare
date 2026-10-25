@@ -15,6 +15,7 @@ import com.spiralsoft.servare.data.local.dao.PruebaDao
 import com.spiralsoft.servare.data.local.entity.EliminacionEntity
 import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.data.local.entity.PruebaEntity
+import com.spiralsoft.servare.data.sync.SyncScheduler
 import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.Prueba
 import com.spiralsoft.servare.domain.model.TipoEntidad
@@ -29,6 +30,7 @@ class DefaultPruebaRepository @Inject constructor(
     private val pruebaDao: PruebaDao,
     private val operationDao: OperationDao,
     private val eliminacionDao: EliminacionDao,
+    private val syncScheduler: SyncScheduler,
     private val clock: Clock
 ) : PruebaRepository {
 
@@ -73,7 +75,7 @@ class DefaultPruebaRepository @Inject constructor(
                     )
                 )
             }
-            // TODO requestSync() cuando exista el motor de sincronización (fuera de la transacción)
+            syncScheduler.requestSync()
             ResultadoGuardadoPrueba.Guardada(id)
         } catch (_: SQLiteFullException) {
             ResultadoGuardadoPrueba.SinEspacio
@@ -112,8 +114,9 @@ class DefaultPruebaRepository @Inject constructor(
                 }
                 true
             }
-            // TODO requestSync() cuando exista el motor de sincronización (fuera de la transacción)
-            if (actualizada) ResultadoGuardadoPrueba.Guardada(entityId) else ResultadoGuardadoPrueba.NoEncontrada
+            if (!actualizada) return ResultadoGuardadoPrueba.NoEncontrada
+            syncScheduler.requestSync()
+            ResultadoGuardadoPrueba.Guardada(entityId)
         } catch (_: SQLiteFullException) {
             ResultadoGuardadoPrueba.SinEspacio
         } catch (_: SQLiteException) {
@@ -141,9 +144,12 @@ class DefaultPruebaRepository @Inject constructor(
             )
             existente
         }
-        // TODO al completar el ELIMINAR, el motor borra la prueba y su eliminación en una transacción
-        // TODO requestSync() cuando exista el motor de sincronización (fuera de la transacción)
-        eliminada?.let { ResultadoEliminacionPrueba.Eliminada(it.titulo) } ?: ResultadoEliminacionPrueba.NoEncontrada
+        // Al completarse el ELIMINAR, el motor borra la prueba y su eliminación en una transacción
+        if (eliminada == null) ResultadoEliminacionPrueba.NoEncontrada
+        else {
+            syncScheduler.requestSync()
+            ResultadoEliminacionPrueba.Eliminada(eliminada.titulo)
+        }
     } catch (_: SQLiteException) {
         ResultadoEliminacionPrueba.ErrorAlmacenamiento
     }
