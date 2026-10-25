@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.spiralsoft.servare.domain.model.Prueba
+import com.spiralsoft.servare.ui.composable.IndicadorConectividad
 import com.spiralsoft.servare.ui.viewModel.PruebaListViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,7 +75,8 @@ fun ListPruebaScreen(
                     IconButton(onClick = onVolver) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
-                }
+                },
+                actions = { IndicadorConectividad() }
             )
         },
         floatingActionButton = {
