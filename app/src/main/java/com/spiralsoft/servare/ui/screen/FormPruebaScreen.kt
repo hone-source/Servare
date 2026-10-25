@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.spiralsoft.servare.ui.composable.IndicadorConectividad
 import com.spiralsoft.servare.ui.composable.formulario.CampoTexto
 import com.spiralsoft.servare.ui.viewModel.PruebaFormViewModel
 
@@ -91,6 +92,7 @@ fun FormPruebaScreen(
                     }
                 },
                 actions = {
+                    IndicadorConectividad()
                     TextButton(onClick = viewModel::guardar, enabled = !form.guardando && !form.cargando) { Text("Guardar") }
                 }
             )
