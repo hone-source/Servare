@@ -11,6 +11,10 @@ interface EliminacionDao {
     @Insert
     suspend fun insert(eliminacion: EliminacionEntity)
 
+    // Borrados que el servidor aún no confirma, el pull no debe resucitarlos
+    @Query("SELECT entityId FROM eliminaciones WHERE entityType = :entityType")
+    suspend fun entidadesEliminadas(entityType: TipoEntidad): List<String>
+
     @Query("DELETE FROM eliminaciones WHERE entityType = :entityType AND entityId = :entityId")
     suspend fun delete(entityType: TipoEntidad, entityId: String)
 }
