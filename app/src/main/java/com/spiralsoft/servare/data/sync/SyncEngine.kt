@@ -19,6 +19,8 @@ import com.spiralsoft.servare.data.remote.PruebaRemota
 import com.spiralsoft.servare.data.remote.PruebaRemoteDataSource
 import com.spiralsoft.servare.data.remote.ResultadoEnvio
 import com.spiralsoft.servare.data.remote.ResultadoPull
+import com.spiralsoft.servare.data.sesion.GestorSesion
+import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.model.TipoEntidad
 import com.spiralsoft.servare.domain.model.TipoOperacion
 
@@ -41,6 +43,7 @@ class SyncEngine @Inject constructor(
     private val syncInicialDao: SyncInicialDao,
     private val remoto: PruebaRemoteDataSource,
     private val monitor: ConnectivityMonitor,
+    private val gestorSesion: GestorSesion,
     private val clock: Clock
 ) {
     // Segunda barrera del single-flight: el ciclo normal y el de reintento usan colas de trabajo distintas
@@ -48,7 +51,15 @@ class SyncEngine @Inject constructor(
 
     private enum class Siguiente { CONTINUAR, DETENER_SIN_SERVIDOR, DETENER_SESION }
 
+    // Ningún ciclo corre ni empieza mientras dura el bloque. Lo usa el cierre de sesión para borrar
+    // los datos locales sin que un ciclo en vuelo los vuelva a llenar
+    suspend fun <T> pausado(bloque: suspend () -> T): T = candado.withLock { bloque() }
+
     suspend fun ejecutarCiclo(): ResultadoCiclo = candado.withLock {
+        // Sin sesión no se sincroniza: la cola queda como está hasta que el usuario inicie sesión
+        // (al hacerlo, el gestor de sesión pide un ciclo)
+        if (gestorSesion.estado.value !is EstadoSesion.ConSesion) return ResultadoCiclo.SesionExpirada
+
         if (!monitor.confirmarAlcanzabilidad()) return ResultadoCiclo.SinServidor
 
         // Interrumpidas a mitad de envío: se reenvían con el mismo operationId
@@ -60,7 +71,10 @@ class SyncEngine @Inject constructor(
             when (procesar(operacion)) {
                 Siguiente.CONTINUAR -> Unit
                 Siguiente.DETENER_SIN_SERVIDOR -> return ResultadoCiclo.SinServidor
-                Siguiente.DETENER_SESION -> return ResultadoCiclo.SesionExpirada
+                Siguiente.DETENER_SESION -> {
+                    gestorSesion.expirar()
+                    return ResultadoCiclo.SesionExpirada
+                }
             }
         }
 
@@ -68,7 +82,10 @@ class SyncEngine @Inject constructor(
         var errorPull: String? = null
         when (val pull = remoto.listar()) {
             is ResultadoPull.Datos -> aplicarPull(pull.pruebas)
-            ResultadoPull.SesionExpirada -> return ResultadoCiclo.SesionExpirada
+            ResultadoPull.SesionExpirada -> {
+                gestorSesion.expirar()
+                return ResultadoCiclo.SesionExpirada
+            }
             ResultadoPull.SinServidor -> {
                 monitor.reportarServidorNoAlcanzable()
                 return ResultadoCiclo.SinServidor
@@ -91,17 +108,17 @@ class SyncEngine @Inject constructor(
     private suspend fun aplicarPull(remotas: List<PruebaRemota>) = database.withTransaction {
         val protegidas = operationDao.entidadesConOperacionesSinTerminar(TipoEntidad.PRUEBA).toSet() +
             eliminacionDao.entidadesEliminadas(TipoEntidad.PRUEBA)
-        for (remota in remotas) {
-            if (remota.entityId in protegidas) continue
-            val local = pruebaDao.findById(remota.entityId)
+        for ((entityId, titulo, texto, numero, createdAt, version) in remotas) {
+            if (entityId in protegidas) continue
+            val local = pruebaDao.findById(entityId)
             val nueva = PruebaEntity(
-                entityId = remota.entityId,
-                titulo = remota.titulo,
-                texto = remota.texto,
-                numero = remota.numero,
-                createdAt = remota.createdAt,
+                entityId = entityId,
+                titulo = titulo,
+                texto = texto,
+                numero = numero,
+                createdAt = createdAt,
                 // Sin versión del servidor se conserva la que ya se conocía
-                version = remota.version ?: local?.version
+                version = version ?: local?.version
             )
             if (nueva != local) pruebaDao.upsert(nueva)
         }
