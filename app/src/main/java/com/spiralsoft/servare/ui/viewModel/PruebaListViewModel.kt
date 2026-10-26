@@ -10,19 +10,32 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.spiralsoft.servare.data.notificacion.ServicioNotificacionEstado
 import com.spiralsoft.servare.domain.repository.PruebaRepository
 import com.spiralsoft.servare.domain.repository.ResultadoEliminacionPrueba
 import com.spiralsoft.servare.ui.viewModel.state.PruebaListState
 
 @HiltViewModel
 class PruebaListViewModel @Inject constructor(
-    private val repository: PruebaRepository
+    private val repository: PruebaRepository,
+    servicio: ServicioNotificacionEstado
 ) : ViewModel() {
 
     private val mensaje = MutableStateFlow<String?>(null)
 
-    val state: StateFlow<PruebaListState> = combine(repository.observarTodas(), mensaje) { pruebas, mensaje ->
-        PruebaListState(cargando = false, pruebas = pruebas, mensaje = mensaje)
+    val state: StateFlow<PruebaListState> = combine(
+        repository.observarTodas(),
+        repository.observarDescargaInicial(),
+        servicio.descargaInicial,
+        mensaje
+    ) { pruebas, descargaCompleta, avisoDescarga, mensaje ->
+        PruebaListState(
+            cargando = false,
+            pruebas = pruebas,
+            // Con datos locales se muestran siempre, el aviso solo explica una lista vacía
+            sinDescargar = avisoDescarga.takeIf { pruebas.isEmpty() && !descargaCompleta },
+            mensaje = mensaje
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PruebaListState())
 
     fun eliminar(entityId: String) {
