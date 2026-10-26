@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
+import com.spiralsoft.servare.data.sync.SyncScheduler
 import com.spiralsoft.servare.domain.model.EstadoConectividad
 import com.spiralsoft.servare.domain.model.EstadoConectividad.CONECTADO
 import com.spiralsoft.servare.domain.model.EstadoConectividad.RED_SIN_SERVIDOR
@@ -42,7 +43,8 @@ import kotlin.time.Duration.Companion.milliseconds
 class ConnectivityMonitor @Inject constructor(
     @ApplicationContext private val context: Context,
     okHttpClient: OkHttpClient,
-    baseUrl: HttpUrl
+    baseUrl: HttpUrl,
+    private val syncScheduler: SyncScheduler
 ) {
     private val _estado = MutableStateFlow(SIN_RED)
     val estado: StateFlow<EstadoConectividad> = _estado.asStateFlow()
@@ -132,7 +134,7 @@ class ConnectivityMonitor @Inject constructor(
         // soloDesde evita pisar un SIN_RED que llegó mientras corría el health check
         if (cambiar(CONECTADO, soloDesde = RED_SIN_SERVIDOR)) {
             cancelarSondeo()
-            // TODO requestSync() cuando exista el motor de sincronización (recuperación de conexión)
+            syncScheduler.requestSync() // recuperación de conexión
         }
     }
 

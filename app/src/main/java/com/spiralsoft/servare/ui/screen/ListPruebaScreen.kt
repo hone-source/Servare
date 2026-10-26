@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -87,8 +88,32 @@ fun ListPruebaScreen(
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
         val modifier = Modifier.fillMaxSize().padding(padding)
+        val sinDescargar = state.sinDescargar
         when {
             state.cargando -> Box(modifier)
+            sinDescargar != null -> Box(modifier.padding(32.dp), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.CloudDownload,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        sinDescargar.titulo,
+                        style = MaterialTheme.typography.titleMedium,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        sinDescargar.detalle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
             state.pruebas.isEmpty() -> Box(modifier.padding(32.dp), contentAlignment = Alignment.Center) {
                 Text(
                     "Aún no hay registros. Pulsa + para crear uno.",

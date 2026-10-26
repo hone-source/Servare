@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import com.spiralsoft.servare.data.local.entity.PruebaEntity
 
@@ -35,9 +36,24 @@ interface PruebaDao {
     )
     suspend fun findActivaById(entityId: String): PruebaEntity?
 
+    // Incluye las marcadas como eliminadas, un CREAR pendiente debe enviarse aunque se haya borrado después
+    @Query("SELECT * FROM pruebas WHERE entityId = :entityId")
+    suspend fun findById(entityId: String): PruebaEntity?
+
+    // Solo la versión: no pisa una edición hecha mientras la operación estaba en vuelo
+    @Query("UPDATE pruebas SET version = :version WHERE entityId = :entityId")
+    suspend fun actualizarVersion(entityId: String, version: Int)
+
+    @Query("DELETE FROM pruebas WHERE entityId = :entityId")
+    suspend fun deleteById(entityId: String)
+
     @Insert
     suspend fun insert(prueba: PruebaEntity)
 
     @Update
     suspend fun update(prueba: PruebaEntity)
+
+    // Pull: crea el registro bajado del servidor o actualiza el que ya estaba
+    @Upsert
+    suspend fun upsert(prueba: PruebaEntity)
 }
