@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import com.spiralsoft.servare.data.local.entity.PruebaEntity
 
@@ -51,4 +52,8 @@ interface PruebaDao {
 
     @Update
     suspend fun update(prueba: PruebaEntity)
+
+    // Pull: crea el registro bajado del servidor o actualiza el que ya estaba
+    @Upsert
+    suspend fun upsert(prueba: PruebaEntity)
 }
