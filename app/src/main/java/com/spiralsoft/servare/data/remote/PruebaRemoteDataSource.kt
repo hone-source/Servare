@@ -22,6 +22,25 @@ class PruebaRemoteDataSource @Inject constructor(
     suspend fun eliminar(operationId: String, entityId: String, baseVersion: Int?): ResultadoEnvio =
         ejecutar { api.eliminar(entityId, operationId, baseVersion) }
 
+    suspend fun listar(): ResultadoPull = try {
+        val respuesta = api.listar()
+        val codigo = respuesta.code()
+        when {
+            respuesta.isSuccessful -> ResultadoPull.Datos(respuesta.body().orEmpty())
+            codigo == 401 || codigo == 403 -> ResultadoPull.SesionExpirada
+            else -> ResultadoPull.Fallo("El servidor no pudo entregar los registros (HTTP $codigo)")
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: SocketTimeoutException) {
+        // No se reporta como servidor caído: con un health check que sí responde, cada ciclo repetiría el timeout
+        ResultadoPull.Fallo("El servidor tardó demasiado en entregar los registros")
+    } catch (_: IOException) {
+        ResultadoPull.SinServidor
+    } catch (_: SerializationException) {
+        ResultadoPull.Fallo("El servidor devolvió una respuesta que la app no entiende")
+    }
+
     private suspend fun ejecutar(llamada: suspend () -> Response<PruebaResponse>): ResultadoEnvio = try {
         traducir(llamada())
     } catch (e: CancellationException) {
