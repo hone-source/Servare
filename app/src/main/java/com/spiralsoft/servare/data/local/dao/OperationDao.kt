@@ -135,4 +135,8 @@ interface OperationDao {
     // Cuándo programar el próximo ciclo si quedan reintentos por vencer
     @Query("SELECT MIN(nextAttemptAt) FROM operaciones WHERE status = 'REINTENTABLE'")
     suspend fun proximoIntento(): Long?
+
+    // Cambios que el servidor aún no confirma y el usuario no abandonó: cerrar sesión los borraría
+    @Query("SELECT COUNT(*) FROM operaciones WHERE status NOT IN ('COMPLETADA', 'DESCARTADA')")
+    suspend fun contarSinTerminar(): Int
 }
