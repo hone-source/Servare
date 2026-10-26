@@ -6,6 +6,10 @@ import com.spiralsoft.servare.domain.model.Prueba
 interface PruebaRepository {
     fun observarTodas(): Flow<List<Prueba>>
 
+    // true cuando ya se descargaron los registros del servidor al menos una vez.
+    // Distingue "vacío porque no hay datos" de "vacío porque aún no se descargaron"
+    fun observarDescargaInicial(): Flow<Boolean>
+
     suspend fun obtener(entityId: String): ResultadoObtencionPrueba
 
     suspend fun guardar(titulo: String, texto: String, numero: Int): ResultadoGuardadoPrueba
