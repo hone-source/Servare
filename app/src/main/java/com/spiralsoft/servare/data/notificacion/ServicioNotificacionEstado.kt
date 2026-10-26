@@ -11,6 +11,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.spiralsoft.servare.data.connectivity.ConnectivityMonitor
 import com.spiralsoft.servare.domain.model.AvisoConectividad
+import com.spiralsoft.servare.domain.model.AvisoDescargaInicial
 import com.spiralsoft.servare.domain.model.EstadoConectividad
 import com.spiralsoft.servare.domain.model.EstadoConectividad.CONECTADO
 import com.spiralsoft.servare.domain.model.EstadoConectividad.RED_SIN_SERVIDOR
@@ -27,6 +28,20 @@ class ServicioNotificacionEstado @Inject constructor(
     val conectividad: StateFlow<AvisoConectividad> = connectivityMonitor.estado
         .map(::traducir)
         .stateIn(scope, SharingStarted.Eagerly, traducir(connectivityMonitor.estado.value))
+
+    // La causa depende del estado de red; la app lo reintenta sola en cada caso
+    val descargaInicial: StateFlow<AvisoDescargaInicial> = connectivityMonitor.estado
+        .map(::traducirDescargaInicial)
+        .stateIn(scope, SharingStarted.Eagerly, traducirDescargaInicial(connectivityMonitor.estado.value))
+
+    private fun traducirDescargaInicial(estado: EstadoConectividad) = AvisoDescargaInicial(
+        titulo = "Aún no se descargaron los registros",
+        detalle = when (estado) {
+            SIN_RED -> "El dispositivo no tiene red. Se descargarán al recuperar la conexión."
+            RED_SIN_SERVIDOR -> "Hay red, pero el servidor no responde. Se descargarán cuando responda."
+            CONECTADO -> "Se están solicitando al servidor. Si no aparecen, se volverá a intentar automáticamente."
+        }
+    )
 
     private fun traducir(estado: EstadoConectividad) = when (estado) {
         SIN_RED -> AvisoConectividad(
