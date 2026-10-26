@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.spiralsoft.servare.domain.model.Prueba
 import com.spiralsoft.servare.ui.composable.IndicadorConectividad
+import com.spiralsoft.servare.ui.composable.MenuSesion
+import com.spiralsoft.servare.ui.composable.TarjetaSesionExpirada
 import com.spiralsoft.servare.ui.viewModel.PruebaListViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +49,7 @@ fun ListPruebaScreen(
     onVolver: () -> Unit,
     onNuevo: () -> Unit,
     onEditar: (entityId: String) -> Unit,
+    onIniciarSesion: () -> Unit,
     mensaje: String?,
     onMensajeMostrado: () -> Unit,
     viewModel: PruebaListViewModel = hiltViewModel()
@@ -69,16 +72,23 @@ fun ListPruebaScreen(
     }
 
     Scaffold(
+        // El aviso de sesión expirada va con la barra: el Scaffold descuenta su altura del contenido
         topBar = {
-            TopAppBar(
-                title = { Text("Registros de prueba") },
-                navigationIcon = {
-                    IconButton(onClick = onVolver) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+            Column {
+                TopAppBar(
+                    title = { Text("Registros de prueba") },
+                    navigationIcon = {
+                        IconButton(onClick = onVolver) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        }
+                    },
+                    actions = {
+                        IndicadorConectividad()
+                        MenuSesion()
                     }
-                },
-                actions = { IndicadorConectividad() }
-            )
+                )
+                state.sesionExpirada?.let { TarjetaSesionExpirada(it, onIniciarSesion) }
+            }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onNuevo) {
