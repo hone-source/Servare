@@ -27,13 +27,15 @@ class PruebaListViewModel @Inject constructor(
         repository.observarTodas(),
         repository.observarDescargaInicial(),
         servicio.descargaInicial,
+        servicio.sesionExpirada,
         mensaje
-    ) { pruebas, descargaCompleta, avisoDescarga, mensaje ->
+    ) { pruebas, descargaCompleta, avisoDescarga, sesionExpirada, mensaje ->
         PruebaListState(
             cargando = false,
             pruebas = pruebas,
             // Con datos locales se muestran siempre, el aviso solo explica una lista vacía
             sinDescargar = avisoDescarga.takeIf { pruebas.isEmpty() && !descargaCompleta },
+            sesionExpirada = sesionExpirada,
             mensaje = mensaje
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PruebaListState())
