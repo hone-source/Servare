@@ -29,5 +29,6 @@ object DatabaseModule {
     @Provides fun eliminacionDao(db: AppDatabase) = db.eliminacionDao()
 
     //Dao para las operaciones propias del sistema
+    @Provides fun syncInicialDao(db: AppDatabase) = db.syncInicialDao()
 
 }
