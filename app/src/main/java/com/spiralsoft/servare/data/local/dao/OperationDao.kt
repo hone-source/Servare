@@ -122,6 +122,16 @@ interface OperationDao {
     @Query("UPDATE operaciones SET status = 'PENDIENTE' WHERE operationId = :operationId")
     suspend fun marcarPendiente(operationId: String)
 
+    // Protección del pull: registros con operaciones sin terminar (incluidas FALLIDA, CONFLICTO y BLOQUEADA,
+    // que se conservan hasta que el usuario decida) no se sobrescriben con datos del servidor
+    @Query(
+        """
+        SELECT DISTINCT entityId FROM operaciones
+        WHERE entityType = :entityType AND status NOT IN ('COMPLETADA', 'DESCARTADA')
+        """
+    )
+    suspend fun entidadesConOperacionesSinTerminar(entityType: TipoEntidad): List<String>
+
     // Cuándo programar el próximo ciclo si quedan reintentos por vencer
     @Query("SELECT MIN(nextAttemptAt) FROM operaciones WHERE status = 'REINTENTABLE'")
     suspend fun proximoIntento(): Long?
