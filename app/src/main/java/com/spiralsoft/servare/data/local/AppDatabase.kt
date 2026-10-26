@@ -5,9 +5,11 @@ import androidx.room.RoomDatabase
 import com.spiralsoft.servare.data.local.dao.EliminacionDao
 import com.spiralsoft.servare.data.local.dao.OperationDao
 import com.spiralsoft.servare.data.local.dao.PruebaDao
+import com.spiralsoft.servare.data.local.dao.SyncInicialDao
 import com.spiralsoft.servare.data.local.entity.EliminacionEntity
 import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.data.local.entity.PruebaEntity
+import com.spiralsoft.servare.data.local.entity.SyncInicialEntity
 
 @Database(
     entities = [
@@ -17,6 +19,7 @@ import com.spiralsoft.servare.data.local.entity.PruebaEntity
         EliminacionEntity::class,
 
         // Entities de las operaciones propias del sistema
+        SyncInicialEntity::class,
     ],
     version = 1,
     exportSchema = false
@@ -28,5 +31,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun eliminacionDao(): EliminacionDao
 
     //Dao para las operaciones propias del sistema
+    abstract fun syncInicialDao(): SyncInicialDao
 
 }
