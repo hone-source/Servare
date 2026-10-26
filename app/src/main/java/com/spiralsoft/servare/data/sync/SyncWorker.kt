@@ -1,6 +1,7 @@
 package com.spiralsoft.servare.data.sync
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -19,9 +20,14 @@ class SyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val resultado = motor.ejecutarCiclo()
-        if (resultado is ResultadoCiclo.Terminado && resultado.reintentoEnMs != null) {
-            scheduler.programarReintento(resultado.reintentoEnMs)
+        if (resultado is ResultadoCiclo.Terminado) {
+            resultado.errorPull?.let { Log.w(TAG, "Pull fallido: $it") }
+            if (resultado.reintentoEnMs != null) scheduler.programarReintento(resultado.reintentoEnMs)
         }
         return Result.success()
+    }
+
+    private companion object {
+        const val TAG = "SyncWorker"
     }
 }
