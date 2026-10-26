@@ -10,8 +10,12 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.spiralsoft.servare.data.connectivity.ConnectivityMonitor
+import com.spiralsoft.servare.data.sesion.GestorSesion
 import com.spiralsoft.servare.domain.model.AvisoConectividad
 import com.spiralsoft.servare.domain.model.AvisoDescargaInicial
+import com.spiralsoft.servare.domain.model.AvisoSesionExpirada
+import com.spiralsoft.servare.domain.model.AvisoSinConexion
+import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.model.EstadoConectividad
 import com.spiralsoft.servare.domain.model.EstadoConectividad.CONECTADO
 import com.spiralsoft.servare.domain.model.EstadoConectividad.RED_SIN_SERVIDOR
@@ -21,7 +25,8 @@ import com.spiralsoft.servare.domain.model.EstadoConectividad.SIN_RED
 // para el usuario. Solo observa al monitor, nunca comprueba la red por su cuenta
 @Singleton
 class ServicioNotificacionEstado @Inject constructor(
-    connectivityMonitor: ConnectivityMonitor
+    private val connectivityMonitor: ConnectivityMonitor,
+    gestorSesion: GestorSesion
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -33,6 +38,50 @@ class ServicioNotificacionEstado @Inject constructor(
     val descargaInicial: StateFlow<AvisoDescargaInicial> = connectivityMonitor.estado
         .map(::traducirDescargaInicial)
         .stateIn(scope, SharingStarted.Eagerly, traducirDescargaInicial(connectivityMonitor.estado.value))
+
+    // null con la sesión en orden. Con la sesión expirada la app sigue funcionando con lo guardado,
+    // pero la cola está pausada, el aviso lo dice y pide iniciar sesión
+    val sesionExpirada: StateFlow<AvisoSesionExpirada?> = gestorSesion.estado
+        .map(::traducirSesion)
+        .stateIn(scope, SharingStarted.Eagerly, traducirSesion(gestorSesion.estado.value))
+
+    private fun traducirSesion(estado: EstadoSesion): AvisoSesionExpirada? =
+        (estado as? EstadoSesion.Expirada)?.let {
+            AvisoSesionExpirada(
+                titulo = "Tu sesión expiró",
+                detalle = "Puedes seguir trabajando: tus cambios se guardan en el dispositivo, " +
+                    "pero no se enviarán hasta que inicies sesión de nuevo con ${it.correo}."
+            )
+        }
+
+    // Registrarse e iniciar sesión requieren servidor: null cuando se puede, el aviso con la causa cuando no
+    val registroNoDisponible: StateFlow<AvisoSinConexion?> =
+        requiereConexion(accion = "Crear la cuenta", verbo = "registrarte")
+
+    val inicioSesionNoDisponible: StateFlow<AvisoSinConexion?> =
+        requiereConexion(accion = "Iniciar sesión", verbo = "iniciar sesión")
+
+    private fun requiereConexion(accion: String, verbo: String): StateFlow<AvisoSinConexion?> =
+        connectivityMonitor.estado
+            .map { traducirRequiereConexion(it, accion, verbo) }
+            .stateIn(
+                scope,
+                SharingStarted.Eagerly,
+                traducirRequiereConexion(connectivityMonitor.estado.value, accion, verbo)
+            )
+
+    private fun traducirRequiereConexion(estado: EstadoConectividad, accion: String, verbo: String) =
+        when (estado) {
+            SIN_RED -> AvisoSinConexion(
+                titulo = "$accion requiere conexión",
+                detalle = "El dispositivo no tiene red. Conéctate a internet para $verbo."
+            )
+            RED_SIN_SERVIDOR -> AvisoSinConexion(
+                titulo = "$accion requiere conexión",
+                detalle = "Hay red, pero el servidor no responde. Podrás $verbo en cuanto responda."
+            )
+            CONECTADO -> null
+        }
 
     private fun traducirDescargaInicial(estado: EstadoConectividad) = AvisoDescargaInicial(
         titulo = "Aún no se descargaron los registros",
