@@ -6,11 +6,11 @@ import com.spiralsoft.servare.domain.repository.LONGITUD_MINIMA_CONTRASENA
 import com.spiralsoft.servare.ui.composable.PantallaCredenciales
 import com.spiralsoft.servare.ui.viewModel.RegistroViewModel
 
-// Primera pantalla sin sesión. Sin botón de volver.
-// Registrarse es obligatorio para entrar
+
+// Registrarse es obligatorio para entrar. Se llega desde el inicio, al que se puede volver
 @Composable
 fun RegistroScreen(
-    onIniciarSesion: () -> Unit,
+    onVolver: () -> Unit,
     viewModel: RegistroViewModel = hiltViewModel()
 ) {
     PantallaCredenciales(
@@ -18,8 +18,7 @@ fun RegistroScreen(
         titulo = "Crear cuenta",
         introduccion = "Para usar Servare necesitas una cuenta. Crearla requiere conexión con el servidor.",
         textoBoton = "Crear cuenta",
-        textoEnlace = "¿Ya tienes cuenta? Inicia sesión",
-        onEnlace = onIniciarSesion,
-        ayudaContrasena = "Mínimo $LONGITUD_MINIMA_CONTRASENA caracteres"
+        ayudaContrasena = "Mínimo $LONGITUD_MINIMA_CONTRASENA caracteres",
+        onVolver = onVolver
     )
 }
