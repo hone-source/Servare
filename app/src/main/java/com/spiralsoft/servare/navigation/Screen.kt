@@ -1,6 +1,7 @@
 package com.spiralsoft.servare.navigation
 
 sealed class Screen(val route: String) {
+    data object Inicio : Screen("inicio")
     data object Registro : Screen("registro")
     data object Login : Screen("login")
     data object PruebaList : Screen("list")
