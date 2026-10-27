@@ -6,7 +6,7 @@ import com.spiralsoft.servare.ui.composable.PantallaCredenciales
 import com.spiralsoft.servare.ui.viewModel.LoginViewModel
 
 // Dos usos.
-// Desde el registro, para quien ya tiene cuenta (sesión cerrada, app reinstalada).
+// Desde el inicio, para quien ya tiene cuenta (sesión cerrada, app reinstalada).
 // Desde la lista, con la sesión expirada: vuelve a entrar con la misma cuenta, sin perder lo guardado
 @Composable
 fun LoginScreen(
@@ -24,8 +24,6 @@ fun LoginScreen(
             "Entra con tu cuenta de Servare. Iniciar sesión requiere conexión con el servidor."
         },
         textoBoton = "Iniciar sesión",
-        textoEnlace = if (reautenticando) null else "¿No tienes cuenta? Créala",
-        onEnlace = onVolver,
         correoFijo = reautenticando,
         onVolver = onVolver
     )
