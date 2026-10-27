@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.ui.screen.FormPruebaScreen
+import com.spiralsoft.servare.ui.screen.InicioScreen
 import com.spiralsoft.servare.ui.screen.ListPruebaScreen
 import com.spiralsoft.servare.ui.screen.LoginScreen
 import com.spiralsoft.servare.ui.screen.RegistroScreen
@@ -32,37 +33,39 @@ fun AppNavHost(
 ) {
     val sesion by sesionViewModel.estado.collectAsState()
 
-    // Mientras se lee la sesión guardada no se dibuja nada, evita mostrar el registro un instante a quien ya lo hizo
+    // Mientras se lee la sesión guardada no se dibuja nada
+    // para evita mostrar el inicio un instante a quien ya tiene sesión
     if (sesion is EstadoSesion.Cargando) {
         Box(modifier.fillMaxSize())
         return
     }
 
-    // Sin sesión lo primero que se ve es el registro, que es obligatorio para entrar.
-    // Con la sesión expirada se entra a la app igual: sigue funcionando con lo guardado
+    // Sin sesión lo primero que se ve es el inicio, que ofrece crear cuenta o iniciar sesión.
+    // Con la sesión expirada se entra a la app igual, sigue funcionando con lo guardado
     val startDestination = remember {
         if (sesion is EstadoSesion.ConSesion || sesion is EstadoSesion.Expirada) Screen.PruebaList.route
-        else Screen.Registro.route
+        else Screen.Inicio.route
     }
 
-    // La sesión cambia con la pantalla ya abierta: al registrarse o iniciar sesión se entra a la app
-    // y "atrás" no vuelve a esas pantallas; sin sesión se vuelve al registro
+    // La sesión cambia con la pantalla ya abierta, al registrarse o iniciar sesión se entra a la app
+    // y "atrás" no vuelve a esas pantallas; sin sesión se vuelve al inicio
     LaunchedEffect(sesion) {
         val ruta = navController.currentDestination?.route ?: return@LaunchedEffect
-        val enAcceso = ruta == Screen.Registro.route || ruta == Screen.Login.route
+        val enAcceso = ruta == Screen.Inicio.route || ruta == Screen.Registro.route || ruta == Screen.Login.route
         when (sesion) {
             is EstadoSesion.ConSesion -> if (enAcceso) {
-                // Si venía de la lista (sesión expirada) vuelve a ella; si venía del registro, entra a la lista
+                // Si venía de la lista (sesión expirada) vuelve a ella
+                // si venía del inicio, entra a la lista
                 if (!navController.popBackStack(Screen.PruebaList.route, inclusive = false)) {
                     navController.navigate(Screen.PruebaList.route) {
-                        popUpTo(Screen.Registro.route) { inclusive = true }
+                        popUpTo(Screen.Inicio.route) { inclusive = true }
                     }
                 }
             }
             // La app sigue en la pantalla en la que estaba: el aviso de la lista ofrece iniciar sesión
             is EstadoSesion.Expirada -> Unit
             EstadoSesion.SinSesion -> if (!enAcceso) {
-                navController.navigate(Screen.Registro.route) {
+                navController.navigate(Screen.Inicio.route) {
                     popUpTo(navController.graph.id) { inclusive = true }
                 }
             }
@@ -75,8 +78,14 @@ fun AppNavHost(
         startDestination = startDestination,
         modifier = modifier
     ) {
+        composable(Screen.Inicio.route) {
+            InicioScreen(
+                onRegistro = { navController.navigate(Screen.Registro.route) },
+                onLogin = { navController.navigate(Screen.Login.route) }
+            )
+        }
         composable(Screen.Registro.route) {
-            RegistroScreen(onIniciarSesion = { navController.navigate(Screen.Login.route) })
+            RegistroScreen(onVolver = { navController.popBackStack() })
         }
         composable(Screen.Login.route) {
             LoginScreen(onVolver = { navController.popBackStack() })
