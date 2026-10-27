@@ -42,7 +42,7 @@ import com.spiralsoft.servare.ui.viewModel.CredencialesViewModel
 
 // Pantalla de correo y contraseña que comparten el registro y el inicio de sesión.
 // Al terminar bien, la navegación pasa sola a la app porque cambia el estado de la sesión.
-// Sin onVolver no hay botón de volver: registrarse es obligatorio para entrar
+// Sin onVolver no hay botón de volver
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaCredenciales(
@@ -51,8 +51,6 @@ fun PantallaCredenciales(
     introduccion: String,
     textoBoton: String,
     modifier: Modifier = Modifier,
-    textoEnlace: String? = null,
-    onEnlace: () -> Unit = {},
     ayudaContrasena: String? = null,
     correoFijo: Boolean = false,
     onVolver: (() -> Unit)? = null
@@ -148,10 +146,6 @@ fun PantallaCredenciales(
                 } else {
                     Text(textoBoton)
                 }
-            }
-
-            textoEnlace?.let {
-                TextButton(onClick = onEnlace, modifier = Modifier.fillMaxWidth()) { Text(it) }
             }
         }
     }
