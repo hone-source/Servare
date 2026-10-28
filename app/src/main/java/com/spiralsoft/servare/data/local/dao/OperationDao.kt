@@ -3,6 +3,7 @@ package com.spiralsoft.servare.data.local.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.domain.model.TipoEntidad
 
@@ -135,6 +136,18 @@ interface OperationDao {
     // Cuándo programar el próximo ciclo si quedan reintentos por vencer
     @Query("SELECT MIN(nextAttemptAt) FROM operaciones WHERE status = 'REINTENTABLE'")
     suspend fun proximoIntento(): Long?
+
+    // Lo que requiere atención del usuario, de la más antigua a la más reciente. Se conserva hasta que decida
+    @Query(
+        """
+        SELECT o.operationId, o.type, o.status, o.entityType, o.entityId, o.lastError, p.titulo AS titulo
+        FROM operaciones o
+        LEFT JOIN pruebas p ON o.entityType = 'PRUEBA' AND p.entityId = o.entityId
+        WHERE o.status IN ('FALLIDA', 'CONFLICTO', 'BLOQUEADA')
+        ORDER BY o.createdAt ASC
+        """
+    )
+    fun observarConProblema(): Flow<List<OperacionConProblema>>
 
     // Cambios que el servidor aún no confirma y el usuario no abandonó: cerrar sesión los borraría
     @Query("SELECT COUNT(*) FROM operaciones WHERE status NOT IN ('COMPLETADA', 'DESCARTADA')")
