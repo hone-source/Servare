@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import com.spiralsoft.servare.data.local.entity.OperationEntity
+import com.spiralsoft.servare.domain.model.CausaConflicto
 import com.spiralsoft.servare.domain.model.TipoEntidad
 
 @Dao
@@ -94,9 +95,17 @@ interface OperationDao {
     )
     suspend fun marcarFallida(operationId: String, intentos: Int, error: String)
 
-    // Versión distinta o 404/410
-    @Query("UPDATE operaciones SET status = 'CONFLICTO', nextAttemptAt = NULL, lastError = :error WHERE operationId = :operationId")
-    suspend fun marcarConflicto(operationId: String, error: String)
+    // Versión distinta o 404/410.
+    // El 409 trae el registro vigente del servidor: se guarda para compararlo
+    @Query(
+        """
+        UPDATE operaciones
+        SET status = 'CONFLICTO', nextAttemptAt = NULL, lastError = :error,
+            conflictCause = :causa, serverSnapshot = :snapshot
+        WHERE operationId = :operationId
+        """
+    )
+    suspend fun marcarConflicto(operationId: String, error: String, causa: CausaConflicto, snapshot: String?)
 
     // Las posteriores de la misma entidad y las que dependen de ella pasan a BLOQUEADA (se conservan)
     @Query(
@@ -123,6 +132,67 @@ interface OperationDao {
     @Query("UPDATE operaciones SET status = 'PENDIENTE' WHERE operationId = :operationId")
     suspend fun marcarPendiente(operationId: String)
 
+    // --- Acciones del usuario (docs/2.2.md). Cada una exige el estado esperado y devuelve las filas
+    // cambiadas: 0 significa que la operación ya no está en ese estado ---
+
+    @Query("SELECT * FROM operaciones WHERE operationId = :operationId")
+    suspend fun buscar(operationId: String): OperationEntity?
+
+    // FALLIDA → PENDIENTE con el mismo operationId y los 5 intentos de nuevo
+    @Query(
+        """
+        UPDATE operaciones
+        SET status = 'PENDIENTE', attemptCount = 0, nextAttemptAt = NULL, lastError = NULL
+        WHERE operationId = :operationId AND status = 'FALLIDA'
+        """
+    )
+    suspend fun reintentar(operationId: String): Int
+
+    // Conservar la mía: CONFLICTO → PENDIENTE sobre la versión del servidor. Una CREAR que chocó con un
+    // registro que ya existía pasa a ser una ACTUALIZAR de esa versión
+    @Query(
+        """
+        UPDATE operaciones
+        SET status = 'PENDIENTE', attemptCount = 0, nextAttemptAt = NULL, lastError = NULL,
+            conflictCause = NULL, serverSnapshot = NULL, baseVersion = :version,
+            type = CASE WHEN type = 'CREAR' THEN 'ACTUALIZAR' ELSE type END
+        WHERE operationId = :operationId AND status = 'CONFLICTO'
+        """
+    )
+    suspend fun reanudarSobreVersion(operationId: String, version: Int): Int
+
+    // El usuario abandona su cambio
+    @Query(
+        """
+        UPDATE operaciones SET status = 'DESCARTADA', nextAttemptAt = NULL
+        WHERE operationId = :operationId AND status IN ('FALLIDA', 'CONFLICTO')
+        """
+    )
+    suspend fun descartar(operationId: String): Int
+
+    // Las BLOQUEADAS por esta operación vuelven a la cola al resolverla...
+    @Query(
+        """
+        UPDATE operaciones SET status = 'PENDIENTE'
+        WHERE status = 'BLOQUEADA' AND operationId != :operationId
+        AND ((entityType = :entityType AND entityId = :entityId AND createdAt > :createdAt)
+             OR dependsOn = :operationId)
+        """
+    )
+    suspend fun liberarBloqueadas(operationId: String, entityType: TipoEntidad, entityId: String, createdAt: Long)
+
+    // ...y se descartan con ella si el usuario la abandona. Incluye las PENDIENTE y REINTENTABLE que el usuario
+    // creó después sobre el mismo registro: sin esto, enviarían un contenido que ya no corresponde
+    @Query(
+        """
+        UPDATE operaciones SET status = 'DESCARTADA'
+        WHERE status IN ('BLOQUEADA', 'PENDIENTE', 'REINTENTABLE') AND operationId != :operationId
+        AND ((entityType = :entityType AND entityId = :entityId AND createdAt > :createdAt)
+             OR dependsOn = :operationId)
+        """
+    )
+    suspend fun descartarPosteriores(operationId: String, entityType: TipoEntidad, entityId: String, createdAt: Long)
+
     // Protección del pull: registros con operaciones sin terminar (incluidas FALLIDA, CONFLICTO y BLOQUEADA,
     // que se conservan hasta que el usuario decida) no se sobrescriben con datos del servidor
     @Query(
@@ -140,7 +210,12 @@ interface OperationDao {
     // Lo que requiere atención del usuario, de la más antigua a la más reciente. Se conserva hasta que decida
     @Query(
         """
-        SELECT o.operationId, o.type, o.status, o.entityType, o.entityId, o.lastError, p.titulo AS titulo
+        SELECT o.operationId, o.type, o.status, o.entityType, o.entityId, o.lastError,
+               o.conflictCause, o.serverSnapshot,
+               p.titulo AS titulo, p.texto AS texto, p.numero AS numero,
+               (SELECT COUNT(*) FROM operaciones x
+                WHERE x.entityType = o.entityType AND x.entityId = o.entityId AND x.createdAt > o.createdAt
+                AND x.status IN ('BLOQUEADA', 'PENDIENTE', 'REINTENTABLE')) AS posteriores
         FROM operaciones o
         LEFT JOIN pruebas p ON o.entityType = 'PRUEBA' AND p.entityId = o.entityId
         WHERE o.status IN ('FALLIDA', 'CONFLICTO', 'BLOQUEADA')
