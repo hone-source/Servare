@@ -9,6 +9,7 @@ import javax.inject.Singleton
 import com.spiralsoft.servare.data.connectivity.ConnectivityMonitor
 import com.spiralsoft.servare.data.local.AppDatabase
 import com.spiralsoft.servare.data.local.dao.EliminacionDao
+import com.spiralsoft.servare.data.local.dao.OperacionConProblema
 import com.spiralsoft.servare.data.local.dao.OperationDao
 import com.spiralsoft.servare.data.local.dao.PruebaDao
 import com.spiralsoft.servare.data.local.dao.SyncInicialDao
@@ -20,6 +21,8 @@ import com.spiralsoft.servare.data.remote.PruebaRemoteDataSource
 import com.spiralsoft.servare.data.remote.ResultadoEnvio
 import com.spiralsoft.servare.data.remote.ResultadoPull
 import com.spiralsoft.servare.data.sesion.GestorSesion
+import com.spiralsoft.servare.notification.ServicioNotificacionEstado
+import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.model.TipoEntidad
 import com.spiralsoft.servare.domain.model.TipoOperacion
@@ -44,12 +47,13 @@ class SyncEngine @Inject constructor(
     private val remoto: PruebaRemoteDataSource,
     private val monitor: ConnectivityMonitor,
     private val gestorSesion: GestorSesion,
+    private val notificaciones: ServicioNotificacionEstado,
     private val clock: Clock
 ) {
     // Segunda barrera del single-flight: el ciclo normal y el de reintento usan colas de trabajo distintas
     private val candado = Mutex()
 
-    private enum class Siguiente { CONTINUAR, DETENER_SIN_SERVIDOR, DETENER_SESION }
+    private enum class Siguiente { CONTINUAR, CONFIRMADA, DETENER_SIN_SERVIDOR, DETENER_SESION }
 
     // Ningún ciclo corre ni empieza mientras dura el bloque. Lo usa el cierre de sesión para borrar
     // los datos locales sin que un ciclo en vuelo los vuelva a llenar
@@ -66,16 +70,25 @@ class SyncEngine @Inject constructor(
         operationDao.recuperarHuerfanas()
         operationDao.liberarReintentables(clock.millis())
 
-        while (true) {
-            val operacion = operationDao.siguienteElegible() ?: break
-            when (procesar(operacion)) {
-                Siguiente.CONTINUAR -> Unit
-                Siguiente.DETENER_SIN_SERVIDOR -> return ResultadoCiclo.SinServidor
-                Siguiente.DETENER_SESION -> {
-                    gestorSesion.expirar()
-                    return ResultadoCiclo.SesionExpirada
+        // Resultado de cada operación finalizada: se avisa al terminar la cola, aunque el ciclo se corte a la mitad.
+        // Además de este aviso, las FALLIDA y CONFLICTO quedan en la cola y el servicio las lee de ahí
+        var confirmadas = 0
+        val conProblema = mutableListOf<OperacionConProblema>()
+        try {
+            while (true) {
+                val operacion = operationDao.siguienteElegible() ?: break
+                when (procesar(operacion, conProblema)) {
+                    Siguiente.CONTINUAR -> Unit
+                    Siguiente.CONFIRMADA -> confirmadas++
+                    Siguiente.DETENER_SIN_SERVIDOR -> return ResultadoCiclo.SinServidor
+                    Siguiente.DETENER_SESION -> {
+                        gestorSesion.expirar()
+                        return ResultadoCiclo.SesionExpirada
+                    }
                 }
             }
+        } finally {
+            notificaciones.operacionesFinalizadas(confirmadas, conProblema)
         }
 
         // Push antes de pull: el servidor ya conoce los cambios locales cuando envía los suyos
@@ -126,10 +139,13 @@ class SyncEngine @Inject constructor(
         syncInicialDao.marcarCompletada(SyncInicialEntity(TipoEntidad.PRUEBA, clock.millis()))
     }
 
-    private suspend fun procesar(op: OperationEntity): Siguiente {
+    private suspend fun procesar(op: OperationEntity, conProblema: MutableList<OperacionConProblema>): Siguiente {
         operationDao.marcarProcesando(op.operationId, clock.millis())
         when (val resultado = enviar(op)) {
-            is ResultadoEnvio.Confirmada -> confirmar(op, resultado.version)
+            is ResultadoEnvio.Confirmada -> {
+                confirmar(op, resultado.version)
+                return Siguiente.CONFIRMADA
+            }
 
             ResultadoEnvio.Incierto -> {
                 // Se perdió la conexión: no cuenta como intento
@@ -141,7 +157,9 @@ class SyncEngine @Inject constructor(
             is ResultadoEnvio.Temporal -> {
                 val intentos = op.attemptCount + 1
                 if (intentos >= MAX_INTENTOS) {
-                    fallar(op, intentos, "${resultado.motivo}. Se agotaron los $MAX_INTENTOS intentos")
+                    val motivo = "${resultado.motivo}. Se agotaron los $MAX_INTENTOS intentos"
+                    fallar(op, intentos, motivo)
+                    conProblema += problema(op, EstadoOperacion.FALLIDA, motivo)
                 } else {
                     operationDao.marcarReintentable(
                         op.operationId, intentos, clock.millis() + espera(intentos), resultado.motivo
@@ -153,12 +171,18 @@ class SyncEngine @Inject constructor(
                 }
             }
 
-            is ResultadoEnvio.Conflicto -> database.withTransaction {
-                operationDao.marcarConflicto(op.operationId, resultado.motivo)
-                bloquearDependientes(op)
+            is ResultadoEnvio.Conflicto -> {
+                database.withTransaction {
+                    operationDao.marcarConflicto(op.operationId, resultado.motivo)
+                    bloquearDependientes(op)
+                }
+                conProblema += problema(op, EstadoOperacion.CONFLICTO, resultado.motivo)
             }
 
-            is ResultadoEnvio.Definitivo -> fallar(op, op.attemptCount, resultado.motivo)
+            is ResultadoEnvio.Definitivo -> {
+                fallar(op, op.attemptCount, resultado.motivo)
+                conProblema += problema(op, EstadoOperacion.FALLIDA, resultado.motivo)
+            }
 
             ResultadoEnvio.SesionExpirada -> {
                 // No es culpa de la operación: queda como estaba y se pausa toda la cola
@@ -180,6 +204,20 @@ class SyncEngine @Inject constructor(
             TipoOperacion.ADJUNTAR -> ResultadoEnvio.Definitivo("Los adjuntos aún no se pueden enviar")
         }
     }
+
+    // Lo que el servicio de notificación necesita para nombrar el registro afectado
+    private suspend fun problema(op: OperationEntity, estado: EstadoOperacion, motivo: String) =
+        OperacionConProblema(
+            operationId = op.operationId,
+            type = op.type,
+            status = estado,
+            entityType = op.entityType,
+            entityId = op.entityId,
+            lastError = motivo,
+            titulo = when (op.entityType) {
+                TipoEntidad.PRUEBA -> pruebaDao.findById(op.entityId)?.titulo
+            }
+        )
 
     private fun registroAusente() = ResultadoEnvio.Definitivo("El registro ya no está en el dispositivo")
 
