@@ -23,6 +23,13 @@ class PruebaListViewModel @Inject constructor(
 
     private val mensaje = MutableStateFlow<String?>(null)
 
+    init {
+        // Resultado de la sincronización: confirmaciones y fallos
+        viewModelScope.launch {
+            servicio.resultados.collect { mensaje.value = it.mensaje }
+        }
+    }
+
     val state: StateFlow<PruebaListState> = combine(
         repository.observarTodas(),
         repository.observarDescargaInicial(),
@@ -38,6 +45,8 @@ class PruebaListViewModel @Inject constructor(
             sesionExpirada = sesionExpirada,
             mensaje = mensaje
         )
+    }.combine(servicio.problemasOperacion) { state, problemas ->
+        state.copy(problemas = problemas)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PruebaListState())
 
     fun eliminar(entityId: String) {
