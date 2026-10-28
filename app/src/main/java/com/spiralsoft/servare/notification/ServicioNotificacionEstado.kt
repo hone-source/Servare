@@ -13,18 +13,23 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.spiralsoft.servare.data.connectivity.ConnectivityMonitor
 import com.spiralsoft.servare.data.local.dao.OperacionConProblema
 import com.spiralsoft.servare.data.local.dao.OperationDao
+import com.spiralsoft.servare.data.remote.PruebaRemota
 import com.spiralsoft.servare.data.sesion.GestorSesion
+import com.spiralsoft.servare.domain.model.AccionOperacion
 import com.spiralsoft.servare.domain.model.AvisoConectividad
 import com.spiralsoft.servare.domain.model.AvisoDescargaInicial
 import com.spiralsoft.servare.domain.model.AvisoOperacion
 import com.spiralsoft.servare.domain.model.AvisoResultado
 import com.spiralsoft.servare.domain.model.AvisoSesionExpirada
 import com.spiralsoft.servare.domain.model.AvisoSinConexion
+import com.spiralsoft.servare.domain.model.CampoComparado
+import com.spiralsoft.servare.domain.model.CausaConflicto
 import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.model.EstadoConectividad
@@ -39,7 +44,8 @@ import com.spiralsoft.servare.domain.model.TipoOperacion
 class ServicioNotificacionEstado @Inject constructor(
     private val connectivityMonitor: ConnectivityMonitor,
     gestorSesion: GestorSesion,
-    operationDao: OperationDao
+    operationDao: OperationDao,
+    private val json: Json
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -99,9 +105,8 @@ class ServicioNotificacionEstado @Inject constructor(
     // es de otro registro (dependsOn) se avisa sola
     private fun traducirProblemas(operaciones: List<OperacionConProblema>): List<AvisoOperacion> {
         val (bloqueadas, origenes) = operaciones.partition { it.status == EstadoOperacion.BLOQUEADA }
-        val enEspera = bloqueadas.groupBy { it.entityType to it.entityId }
         val conOrigen = origenes.map { it.entityType to it.entityId }.toSet()
-        return origenes.map { traducirOrigen(it, enEspera[it.entityType to it.entityId].orEmpty().size) } +
+        return origenes.map { traducirOrigen(it, it.posteriores) } +
             bloqueadas.filter { (it.entityType to it.entityId) !in conOrigen }.map(::traducirBloqueada)
     }
 
@@ -112,13 +117,14 @@ class ServicioNotificacionEstado @Inject constructor(
             1 -> " Hay 1 cambio posterior en espera."
             else -> " Hay $enEspera cambios posteriores en espera."
         }
-        return if (op.status == EstadoOperacion.CONFLICTO) AvisoOperacion(
-            op.operationId,
-            op.status,
-            titulo = "$registro tiene cambios por resolver",
-            detalle = "${op.lastError ?: "El registro cambió en el servidor"}. " +
-                "Tu versión sigue guardada en el dispositivo.$espera"
-        ) else AvisoOperacion(
+        val posteriores = when (enEspera) {
+            0 -> ""
+            1 -> " También se descarta 1 cambio posterior."
+            else -> " También se descartan $enEspera cambios posteriores."
+        }
+        val actual = actualDelServidor(op)
+
+        if (op.status != EstadoOperacion.CONFLICTO) return AvisoOperacion(
             op.operationId,
             op.status,
             titulo = when (op.type) {
@@ -128,9 +134,64 @@ class ServicioNotificacionEstado @Inject constructor(
                 TipoOperacion.ADJUNTAR -> "No se pudo subir un archivo de $registro"
             },
             detalle = "${op.lastError ?: "El servidor no aceptó el cambio"}. " +
-                "El cambio sigue guardado en el dispositivo.$espera"
+                "El cambio sigue guardado en el dispositivo.$espera",
+            acciones = listOf(AccionOperacion.REINTENTAR, AccionOperacion.DESCARTAR),
+            confirmaciones = mapOf(AccionOperacion.DESCARTAR to efectoDescartar(op) + posteriores)
+        )
+
+        // Con la versión del servidor se puede elegir cuál conservar; sin ella (el 404, o un 409 sin cuerpo)
+        // solo queda recrear el registro o descartar el cambio
+        val porVersion = op.conflictCause != CausaConflicto.INEXISTENTE_EN_SERVIDOR && actual?.version != null
+        val eliminar = op.type == TipoOperacion.ELIMINAR
+        return AvisoOperacion(
+            op.operationId,
+            op.status,
+            titulo = "$registro tiene cambios por resolver",
+            detalle = "${op.lastError ?: "El registro cambió en el servidor"}. " +
+                "Tu versión sigue guardada en el dispositivo.$espera" +
+                if (porVersion) " Consulta ambas versiones y decide cuál conservar." else "",
+            acciones = when {
+                porVersion -> listOf(AccionOperacion.CONSERVAR_MIA, AccionOperacion.ACEPTAR_SERVIDOR)
+                op.conflictCause == CausaConflicto.INEXISTENTE_EN_SERVIDOR && op.type == TipoOperacion.ACTUALIZAR ->
+                    listOf(AccionOperacion.RECREAR, AccionOperacion.DESCARTAR)
+                else -> listOf(AccionOperacion.DESCARTAR)
+            },
+            confirmaciones = mapOf(
+                AccionOperacion.DESCARTAR to efectoDescartar(op) + posteriores,
+                AccionOperacion.CONSERVAR_MIA to
+                    if (eliminar) "Se eliminará el registro del servidor, aunque cambió allí."
+                    else "Tu versión se enviará y reemplazará la que está en el servidor.",
+                AccionOperacion.ACEPTAR_SERVIDOR to
+                    (if (eliminar) "El registro volverá a mostrarse con la versión del servidor."
+                    else "Tus cambios se reemplazarán por la versión del servidor.") + posteriores
+            ),
+            comparacion = actual?.let {
+                listOf(
+                    CampoComparado("Título", op.titulo, it.titulo),
+                    CampoComparado("Texto", op.texto, it.texto),
+                    CampoComparado("Número", op.numero?.toString(), it.numero.toString())
+                )
+            }
         )
     }
+
+    // Qué le pasa al registro del dispositivo si el usuario abandona el cambio (ver DefaultPruebaRepository)
+    private fun efectoDescartar(op: OperacionConProblema): String {
+        val inexistente = op.conflictCause == CausaConflicto.INEXISTENTE_EN_SERVIDOR
+        return when {
+            op.type == TipoOperacion.CREAR ->
+                "Se eliminará el registro del dispositivo, porque nunca llegó al servidor."
+            inexistente && op.type == TipoOperacion.ELIMINAR ->
+                "El registro ya no existe en el servidor: se quitará del dispositivo."
+            inexistente -> "Se eliminará el registro del dispositivo, porque ya no existe en el servidor."
+            op.type == TipoOperacion.ELIMINAR -> "El registro volverá a mostrarse en la lista."
+            else -> "Se perderán tus cambios: al sincronizar, el registro volverá a la versión del servidor."
+        }
+    }
+
+    // null si el 409 no la trajo o no se puede leer
+    private fun actualDelServidor(op: OperacionConProblema): PruebaRemota? =
+        op.serverSnapshot?.let { runCatching { json.decodeFromString<PruebaRemota>(it) }.getOrNull() }
 
     private fun traducirBloqueada(op: OperacionConProblema) = AvisoOperacion(
         op.operationId,
