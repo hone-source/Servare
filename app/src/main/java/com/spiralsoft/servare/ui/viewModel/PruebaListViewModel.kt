@@ -10,9 +10,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.spiralsoft.servare.domain.model.AccionOperacion
 import com.spiralsoft.servare.notification.ServicioNotificacionEstado
 import com.spiralsoft.servare.domain.repository.PruebaRepository
 import com.spiralsoft.servare.domain.repository.ResultadoEliminacionPrueba
+import com.spiralsoft.servare.domain.repository.ResultadoResolucion
 import com.spiralsoft.servare.ui.viewModel.state.PruebaListState
 
 @HiltViewModel
@@ -56,6 +58,22 @@ class PruebaListViewModel @Inject constructor(
                     "«${resultado.titulo}» se eliminó del dispositivo. Se eliminará del servidor al sincronizar"
                 ResultadoEliminacionPrueba.NoEncontrada -> "Este registro ya no estaba en el dispositivo"
                 ResultadoEliminacionPrueba.ErrorAlmacenamiento -> "No se pudo eliminar el registro. Intenta de nuevo."
+            }
+        }
+    }
+
+    fun resolver(operationId: String, accion: AccionOperacion) {
+        viewModelScope.launch {
+            mensaje.value = when (val resultado = repository.resolver(operationId, accion)) {
+                is ResultadoResolucion.Resuelta -> when (resultado.accion) {
+                    AccionOperacion.REINTENTAR -> "Se volverá a intentar el envío"
+                    AccionOperacion.RECREAR -> "El registro se volverá a crear en el servidor"
+                    AccionOperacion.CONSERVAR_MIA -> "Tu versión se enviará al servidor"
+                    AccionOperacion.ACEPTAR_SERVIDOR -> "Se aplicó la versión del servidor"
+                    AccionOperacion.DESCARTAR -> "El cambio se descartó"
+                }
+                ResultadoResolucion.NoDisponible -> "Este cambio ya se resolvió o cambió de estado"
+                ResultadoResolucion.ErrorAlmacenamiento -> "No se pudo resolver el cambio. Intenta de nuevo."
             }
         }
     }
