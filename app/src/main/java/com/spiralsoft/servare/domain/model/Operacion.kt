@@ -12,6 +12,12 @@ enum class EstadoOperacion {
     DESCARTADA
 }
 
+// Por qué una operación quedó en CONFLICTO, de eso depende lo que el usuario puede hacer
+enum class CausaConflicto {
+    VERSION_DISTINTA,           // el servidor tiene una versión distinta de baseVersion (409)
+    INEXISTENTE_EN_SERVIDOR     // el registro ya no existe en el servidor (404/410)
+}
+
 enum class TipoOperacion {
     CREAR,
     ACTUALIZAR,
