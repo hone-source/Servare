@@ -1,4 +1,4 @@
-package com.spiralsoft.servare.data.notificacion
+package com.spiralsoft.servare.notification
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,8 +21,8 @@ import com.spiralsoft.servare.domain.model.EstadoConectividad.CONECTADO
 import com.spiralsoft.servare.domain.model.EstadoConectividad.RED_SIN_SERVIDOR
 import com.spiralsoft.servare.domain.model.EstadoConectividad.SIN_RED
 
-// Servicio de notificación de estado, traduce estados y errores a mensajes
-// para el usuario. Solo observa al monitor, nunca comprueba la red por su cuenta
+// Servicio de notificación de estado, traduce estados y errores a mensajes para el usuario.
+// Solo observa al monitor, nunca comprueba la red por su cuenta
 @Singleton
 class ServicioNotificacionEstado @Inject constructor(
     private val connectivityMonitor: ConnectivityMonitor,
@@ -34,7 +34,8 @@ class ServicioNotificacionEstado @Inject constructor(
         .map(::traducir)
         .stateIn(scope, SharingStarted.Eagerly, traducir(connectivityMonitor.estado.value))
 
-    // La causa depende del estado de red; la app lo reintenta sola en cada caso
+    // La causa depende del estado de red
+    // La app lo reintenta sola en cada caso
     val descargaInicial: StateFlow<AvisoDescargaInicial> = connectivityMonitor.estado
         .map(::traducirDescargaInicial)
         .stateIn(scope, SharingStarted.Eagerly, traducirDescargaInicial(connectivityMonitor.estado.value))
@@ -54,7 +55,8 @@ class ServicioNotificacionEstado @Inject constructor(
             )
         }
 
-    // Registrarse e iniciar sesión requieren servidor: null cuando se puede, el aviso con la causa cuando no
+    // Registrarse e iniciar sesión requieren servidor
+    // null cuando se puede, se avisa con la causa cuando no es posible
     val registroNoDisponible: StateFlow<AvisoSinConexion?> =
         requiereConexion(accion = "Crear la cuenta", verbo = "registrarte")
 
@@ -102,8 +104,8 @@ class ServicioNotificacionEstado @Inject constructor(
         RED_SIN_SERVIDOR -> AvisoConectividad(
             estado,
             titulo = "Servidor no disponible",
-            detalle = "Hay red, pero el servidor no responde. Tus cambios se guardan en el " +
-                "dispositivo; se volverá a intentar automáticamente."
+            detalle = "Hay red, pero el servidor no responde. Tus cambios se guardan en el dispositivo." +
+                    " Se volverá a intentar automáticamente."
         )
         CONECTADO -> AvisoConectividad(
             estado,
