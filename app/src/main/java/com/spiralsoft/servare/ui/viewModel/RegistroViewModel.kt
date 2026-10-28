@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
-import com.spiralsoft.servare.data.notificacion.ServicioNotificacionEstado
+import com.spiralsoft.servare.notification.ServicioNotificacionEstado
 import com.spiralsoft.servare.domain.repository.LONGITUD_MINIMA_CONTRASENA
 import com.spiralsoft.servare.domain.repository.ResultadoRegistro
 import com.spiralsoft.servare.domain.repository.SesionRepository

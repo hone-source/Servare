@@ -5,7 +5,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.spiralsoft.servare.data.notificacion.ServicioNotificacionEstado
+import com.spiralsoft.servare.notification.ServicioNotificacionEstado
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.repository.ResultadoInicioSesion
 import com.spiralsoft.servare.domain.repository.SesionRepository
@@ -18,14 +18,16 @@ class LoginViewModel @Inject constructor(
     servicio: ServicioNotificacionEstado
 ) : CredencialesViewModel(servicio.inicioSesionNoDisponible) {
 
-    // Con la sesión expirada solo se puede volver a entrar con la misma cuenta: la cola guarda sus cambios
+    // Con la sesión expirada solo se puede volver a entrar con la misma cuenta
+    // la cola guarda sus cambios
     val correoFijo: String? = (repository.estado.value as? EstadoSesion.Expirada)?.correo
 
     init {
         correoFijo?.let { fijo -> formulario.update { it.copy(correo = fijo) } }
     }
 
-    // "Correo o contraseña incorrectos" no señala un campo: se quita al corregir cualquiera de los dos
+    // "Correo o contraseña incorrectos" no señala un campo
+    // Se quita al corregir cualquiera de los dos
     override fun alEditar() {
         formulario.update { it.copy(errorContrasena = null) }
     }
@@ -39,7 +41,8 @@ class LoginViewModel @Inject constructor(
             val resultado = repository.iniciarSesion(actual.correo, actual.contrasena)
             formulario.update { form ->
                 when (resultado) {
-                    // La navegación la hace el estado de la sesión; se deja enviando para no repetir el envío
+                    // La navegación la hace el estado de la sesión
+                    // se deja enviando para no repetir el envío
                     ResultadoInicioSesion.Autenticado -> form
                     ResultadoInicioSesion.CorreoInvalido -> form.copy(
                         enviando = false,

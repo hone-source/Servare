@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.spiralsoft.servare.data.notificacion.ServicioNotificacionEstado
+import com.spiralsoft.servare.notification.ServicioNotificacionEstado
 import com.spiralsoft.servare.domain.repository.PruebaRepository
 import com.spiralsoft.servare.domain.repository.ResultadoEliminacionPrueba
 import com.spiralsoft.servare.ui.viewModel.state.PruebaListState
@@ -44,7 +44,7 @@ class PruebaListViewModel @Inject constructor(
         viewModelScope.launch {
             mensaje.value = when (val resultado = repository.eliminar(entityId)) {
                 is ResultadoEliminacionPrueba.Eliminada ->
-                    "«${resultado.titulo}» se eliminó del dispositivo; se eliminará del servidor al sincronizar"
+                    "«${resultado.titulo}» se eliminó del dispositivo. Se eliminará del servidor al sincronizar"
                 ResultadoEliminacionPrueba.NoEncontrada -> "Este registro ya no estaba en el dispositivo"
                 ResultadoEliminacionPrueba.ErrorAlmacenamiento -> "No se pudo eliminar el registro. Intenta de nuevo."
             }
