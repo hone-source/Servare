@@ -44,6 +44,10 @@ interface PruebaDao {
     @Query("UPDATE pruebas SET version = :version WHERE entityId = :entityId")
     suspend fun actualizarVersion(entityId: String, version: Int)
 
+    // El registro se vuelve a crear en el servidor: la versión que conocía ya no existe
+    @Query("UPDATE pruebas SET version = NULL WHERE entityId = :entityId")
+    suspend fun limpiarVersion(entityId: String)
+
     @Query("DELETE FROM pruebas WHERE entityId = :entityId")
     suspend fun deleteById(entityId: String)
 
