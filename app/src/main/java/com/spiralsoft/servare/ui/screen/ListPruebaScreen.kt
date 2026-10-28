@@ -40,6 +40,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.spiralsoft.servare.domain.model.Prueba
 import com.spiralsoft.servare.ui.composable.IndicadorConectividad
 import com.spiralsoft.servare.ui.composable.MenuSesion
+import com.spiralsoft.servare.ui.composable.TarjetaProblemasOperacion
 import com.spiralsoft.servare.ui.composable.TarjetaSesionExpirada
 import com.spiralsoft.servare.ui.viewModel.PruebaListViewModel
 
@@ -72,7 +73,7 @@ fun ListPruebaScreen(
     }
 
     Scaffold(
-        // El aviso de sesión expirada va con la barra: el Scaffold descuenta su altura del contenido
+        // Los avisos de sesión expirada y de cambios sin sincronizar van con la barrat
         topBar = {
             Column {
                 TopAppBar(
@@ -88,6 +89,7 @@ fun ListPruebaScreen(
                     }
                 )
                 state.sesionExpirada?.let { TarjetaSesionExpirada(it, onIniciarSesion) }
+                if (state.problemas.isNotEmpty()) TarjetaProblemasOperacion(state.problemas)
             }
         },
         floatingActionButton = {
