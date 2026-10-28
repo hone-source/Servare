@@ -58,6 +58,12 @@ class SyncScheduler @Inject constructor(
         }
     }
 
+    // Cancela el ciclo en curso y los que esperan (cierre de sesión). Las operaciones no se tocan
+    suspend fun cancelar() {
+        workManager.cancelUniqueWork(CICLO).await()
+        workManager.cancelUniqueWork(REINTENTO).await()
+    }
+
     private fun solicitud(retrasoMs: Long) = OneTimeWorkRequestBuilder<SyncWorker>()
         .setConstraints(restricciones)
         .setInitialDelay(retrasoMs, TimeUnit.MILLISECONDS)

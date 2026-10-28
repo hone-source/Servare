@@ -17,19 +17,22 @@ fun CampoTexto(
     modifier: Modifier = Modifier,
     multilinea: Boolean = false,
     teclado: KeyboardType = KeyboardType.Text,
-    error: String? = null
+    error: String? = null,
+    capitalizacion: KeyboardCapitalization = KeyboardCapitalization.Sentences,
+    habilitado: Boolean = true
 ) {
     OutlinedTextField(
         value = valor,
         onValueChange = onCambio,
         label = { Text(etiqueta) },
         modifier = modifier.fillMaxWidth(),
+        enabled = habilitado,
         singleLine = !multilinea,
         minLines = if (multilinea) 3 else 1,
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
         keyboardOptions = KeyboardOptions(
-            capitalization = KeyboardCapitalization.Sentences,
+            capitalization = capitalizacion,
             keyboardType = teclado
         )
     )
