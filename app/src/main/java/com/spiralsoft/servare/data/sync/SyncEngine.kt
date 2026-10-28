@@ -3,6 +3,7 @@ package com.spiralsoft.servare.data.sync
 import androidx.room.withTransaction
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.Json
 import java.time.Clock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,6 +23,7 @@ import com.spiralsoft.servare.data.remote.ResultadoEnvio
 import com.spiralsoft.servare.data.remote.ResultadoPull
 import com.spiralsoft.servare.data.sesion.GestorSesion
 import com.spiralsoft.servare.notification.ServicioNotificacionEstado
+import com.spiralsoft.servare.domain.model.CausaConflicto
 import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.model.TipoEntidad
@@ -48,6 +50,7 @@ class SyncEngine @Inject constructor(
     private val monitor: ConnectivityMonitor,
     private val gestorSesion: GestorSesion,
     private val notificaciones: ServicioNotificacionEstado,
+    private val json: Json,
     private val clock: Clock
 ) {
     // Segunda barrera del single-flight: el ciclo normal y el de reintento usan colas de trabajo distintas
@@ -172,11 +175,13 @@ class SyncEngine @Inject constructor(
             }
 
             is ResultadoEnvio.Conflicto -> {
+                // Se guarda el registro vigente del servidor: el usuario podrá compararlo con el suyo
+                val snapshot = resultado.actual?.let { json.encodeToString(PruebaRemota.serializer(), it) }
                 database.withTransaction {
-                    operationDao.marcarConflicto(op.operationId, resultado.motivo)
+                    operationDao.marcarConflicto(op.operationId, resultado.motivo, resultado.causa, snapshot)
                     bloquearDependientes(op)
                 }
-                conProblema += problema(op, EstadoOperacion.CONFLICTO, resultado.motivo)
+                conProblema += problema(op, EstadoOperacion.CONFLICTO, resultado.motivo, resultado.causa)
             }
 
             is ResultadoEnvio.Definitivo -> {
@@ -206,18 +211,23 @@ class SyncEngine @Inject constructor(
     }
 
     // Lo que el servicio de notificación necesita para nombrar el registro afectado
-    private suspend fun problema(op: OperationEntity, estado: EstadoOperacion, motivo: String) =
-        OperacionConProblema(
-            operationId = op.operationId,
-            type = op.type,
-            status = estado,
-            entityType = op.entityType,
-            entityId = op.entityId,
-            lastError = motivo,
-            titulo = when (op.entityType) {
-                TipoEntidad.PRUEBA -> pruebaDao.findById(op.entityId)?.titulo
-            }
-        )
+    private suspend fun problema(
+        op: OperationEntity,
+        estado: EstadoOperacion,
+        motivo: String,
+        causa: CausaConflicto? = null
+    ) = OperacionConProblema(
+        operationId = op.operationId,
+        type = op.type,
+        status = estado,
+        entityType = op.entityType,
+        entityId = op.entityId,
+        lastError = motivo,
+        conflictCause = causa,
+        titulo = when (op.entityType) {
+            TipoEntidad.PRUEBA -> pruebaDao.findById(op.entityId)?.titulo
+        }
+    )
 
     private fun registroAusente() = ResultadoEnvio.Definitivo("El registro ya no está en el dispositivo")
 
