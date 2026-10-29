@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -23,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -139,53 +142,61 @@ fun ListPruebaScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
-        val modifier = Modifier.fillMaxSize().padding(padding)
+        val modifier = Modifier.fillMaxSize()
         val sinDescargar = state.sinDescargar
-        when {
-            state.cargando -> Box(modifier)
-            sinDescargar != null -> Box(modifier.padding(32.dp), contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.CloudDownload,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        // El gesto solo se detecta sobre contenido desplazable: los estados vacíos también se desplazan
+        val vacio = modifier.verticalScroll(rememberScrollState()).padding(32.dp)
+        PullToRefreshBox(
+            isRefreshing = state.refrescando,
+            onRefresh = viewModel::refrescar,
+            modifier = Modifier.fillMaxSize().padding(padding)
+        ) {
+            when {
+                state.cargando -> Box(modifier)
+                sinDescargar != null -> Box(vacio, contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.CloudDownload,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            sinDescargar.titulo,
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            sinDescargar.detalle,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                state.pruebas.isEmpty() -> Box(vacio, contentAlignment = Alignment.Center) {
                     Text(
-                        sinDescargar.titulo,
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        sinDescargar.detalle,
+                        "Aún no hay registros. Pulsa + para crear uno.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
                 }
-            }
-            state.pruebas.isEmpty() -> Box(modifier.padding(32.dp), contentAlignment = Alignment.Center) {
-                Text(
-                    "Aún no hay registros. Pulsa + para crear uno.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-            else -> LazyColumn(
-                modifier = modifier,
-                // Espacio inferior para que el botón "+" no tape el último registro
-                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(state.pruebas, key = { it.entityId }) { prueba ->
-                    TarjetaPrueba(
-                        prueba,
-                        onEditar = { onEditar(prueba.entityId) },
-                        onEliminar = { viewModel.eliminar(prueba.entityId) }
-                    )
+                else -> LazyColumn(
+                    modifier = modifier,
+                    // Espacio inferior para que el botón "+" no tape el último registro
+                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(state.pruebas, key = { it.entityId }) { prueba ->
+                        TarjetaPrueba(
+                            prueba,
+                            onEditar = { onEditar(prueba.entityId) },
+                            onEliminar = { viewModel.eliminar(prueba.entityId) }
+                        )
+                    }
                 }
             }
         }
