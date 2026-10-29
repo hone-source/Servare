@@ -102,7 +102,9 @@ class ConnectivityMonitor @Inject constructor(
     }
 
     private fun redDisponible() {
-        // Una red nueva obliga a confirmar de nuevo, aunque estuviéramos CONECTADO
+        // Una red nueva obliga a confirmar de nuevo, aunque estuviéramos CONECTADO.
+        // Las conexiones del pool pueden haber quedado muertas con la red anterior
+        cliente.connectionPool.evictAll()
         cambiar(RED_SIN_SERVIDOR)
         lanzarSondeo()
     }
@@ -155,7 +157,11 @@ class ConnectivityMonitor @Inject constructor(
             val call = cliente.newCall(Request.Builder().url(healthCheckUrl).build())
             cont.invokeOnCancellation { call.cancel() }
             call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) = cont.resume(false)
+                override fun onFailure(call: Call, e: IOException) {
+                    // Una conexión HTTP/2 muerta sigue en el pool y haría fallar todos los intentos siguientes
+                    cliente.connectionPool.evictAll()
+                    cont.resume(false)
+                }
 
                 override fun onResponse(call: Call, response: Response) =
                     response.use { cont.resume(it.isSuccessful) }
