@@ -40,6 +40,11 @@ interface PruebaDao {
     @Query("SELECT * FROM pruebas WHERE entityId = :entityId")
     suspend fun findById(entityId: String): PruebaEntity?
 
+    // Los que el servidor ya conoció, si dejan de venir en el pull, se borraron allí.
+    // Sin versión son registros que el servidor nunca confirmó, esos no se tocan
+    @Query("SELECT * FROM pruebas WHERE version IS NOT NULL")
+    suspend fun confirmadasPorElServidor(): List<PruebaEntity>
+
     // Solo la versión: no pisa una edición hecha mientras la operación estaba en vuelo
     @Query("UPDATE pruebas SET version = :version WHERE entityId = :entityId")
     suspend fun actualizarVersion(entityId: String, version: Int)
