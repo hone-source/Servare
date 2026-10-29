@@ -3,20 +3,22 @@ package com.spiralsoft.servare.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.spiralsoft.servare.domain.model.CausaConflicto
 import com.spiralsoft.servare.domain.model.EstadoOperacion
+import com.spiralsoft.servare.domain.model.TipoEntidad
 import com.spiralsoft.servare.domain.model.TipoOperacion
 
-// Operación de la cola (outbox), estructura de docs/2.2.md
+// Operación de la cola (outbox)
 @Entity(
     tableName = "operaciones",
-    indices = [Index("entityId"), Index("status")]
+    indices = [Index("entityType", "entityId"), Index("status")]
 )
 data class OperationEntity(
     @PrimaryKey val operationId: String,    // constante en todos los reintentos
     val type: TipoOperacion,
+    val entityType: TipoEntidad,
     val entityId: String,
     val dependsOn: String? = null,
-    val data: String,                       // JSON con lo necesario para ejecutarla
     val createdAt: Long,                    // epoch ms; ordena las operaciones de una misma entidad
     val status: EstadoOperacion = EstadoOperacion.PENDIENTE,
     val attemptCount: Int = 0,
@@ -24,5 +26,7 @@ data class OperationEntity(
     val nextAttemptAt: Long? = null,
     val lastError: String? = null,
     val baseVersion: Int? = null,           // vacía en CREAR
-    val uncertain: Boolean = false
+    val uncertain: Boolean = false,
+    val conflictCause: CausaConflicto? = null,  // solo en CONFLICTO
+    val serverSnapshot: String? = null          // JSON del registro vigente en el servidor, si lo devolvió el 409
 )

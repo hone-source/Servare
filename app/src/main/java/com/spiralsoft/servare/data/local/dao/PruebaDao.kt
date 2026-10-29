@@ -1,0 +1,68 @@
+package com.spiralsoft.servare.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
+import androidx.room.Update
+import androidx.room.Upsert
+import kotlinx.coroutines.flow.Flow
+import com.spiralsoft.servare.data.local.entity.PruebaEntity
+
+@Dao
+interface PruebaDao {
+    // Lee también las eliminaciones: el Flow emite cuando se marca una prueba como eliminada
+    @Query(
+        """
+        SELECT * FROM pruebas p
+        WHERE NOT EXISTS (
+            SELECT 1 FROM eliminaciones e
+            WHERE e.entityType = 'PRUEBA' AND e.entityId = p.entityId
+        )
+        ORDER BY p.createdAt DESC
+        """
+    )
+    fun observarTodas(): Flow<List<PruebaEntity>>
+
+    // Excluye las marcadas como eliminadas
+    @Query(
+        """
+        SELECT * FROM pruebas p
+        WHERE p.entityId = :entityId
+        AND NOT EXISTS (
+            SELECT 1 FROM eliminaciones e
+            WHERE e.entityType = 'PRUEBA' AND e.entityId = p.entityId
+        )
+        """
+    )
+    suspend fun findActivaById(entityId: String): PruebaEntity?
+
+    // Incluye las marcadas como eliminadas, un CREAR pendiente debe enviarse aunque se haya borrado después
+    @Query("SELECT * FROM pruebas WHERE entityId = :entityId")
+    suspend fun findById(entityId: String): PruebaEntity?
+
+    // Los que el servidor ya conoció, si dejan de venir en el pull, se borraron allí.
+    // Sin versión son registros que el servidor nunca confirmó, esos no se tocan
+    @Query("SELECT * FROM pruebas WHERE version IS NOT NULL")
+    suspend fun confirmadasPorElServidor(): List<PruebaEntity>
+
+    // Solo la versión: no pisa una edición hecha mientras la operación estaba en vuelo
+    @Query("UPDATE pruebas SET version = :version WHERE entityId = :entityId")
+    suspend fun actualizarVersion(entityId: String, version: Int)
+
+    // El registro se vuelve a crear en el servidor: la versión que conocía ya no existe
+    @Query("UPDATE pruebas SET version = NULL WHERE entityId = :entityId")
+    suspend fun limpiarVersion(entityId: String)
+
+    @Query("DELETE FROM pruebas WHERE entityId = :entityId")
+    suspend fun deleteById(entityId: String)
+
+    @Insert
+    suspend fun insert(prueba: PruebaEntity)
+
+    @Update
+    suspend fun update(prueba: PruebaEntity)
+
+    // Pull: crea el registro bajado del servidor o actualiza el que ya estaba
+    @Upsert
+    suspend fun upsert(prueba: PruebaEntity)
+}
