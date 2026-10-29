@@ -64,15 +64,6 @@ data class Ficha(
     val participantes: List<Participante> = emptyList()
 )
 
-// Lo mínimo para identificar una ficha en la lista
-data class FichaResumen(
-    val entityId: String,
-    val nombre: String,
-    val tipoEspacio: TipoEspacio?,
-    val comunidad: String,
-    val fechaLevantamiento: String?,
-    val pendiente: Boolean // tiene operaciones sin confirmar por el servidor
-)
 
 @Serializable
 data class PuntoPoligonal(
