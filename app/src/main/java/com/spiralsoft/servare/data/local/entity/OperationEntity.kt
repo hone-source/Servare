@@ -3,6 +3,7 @@ package com.spiralsoft.servare.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.spiralsoft.servare.domain.model.CausaConflicto
 import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.TipoEntidad
 import com.spiralsoft.servare.domain.model.TipoOperacion
@@ -25,5 +26,7 @@ data class OperationEntity(
     val nextAttemptAt: Long? = null,
     val lastError: String? = null,
     val baseVersion: Int? = null,           // vacía en CREAR
-    val uncertain: Boolean = false
+    val uncertain: Boolean = false,
+    val conflictCause: CausaConflicto? = null,  // solo en CONFLICTO
+    val serverSnapshot: String? = null          // JSON del registro vigente en el servidor, si lo devolvió el 409
 )

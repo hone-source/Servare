@@ -13,12 +13,15 @@ data class PruebaRequest(
     val baseVersion: Int? = null            // vacía en CREAR
 )
 
-// El servidor devuelve el registro. La versión la usará la detección de conflictos
-// cuando el servidor la implemente; hasta entonces llega vacía
+// El servidor devuelve el registro con su versión nueva
 @Serializable
 data class PruebaResponse(val version: Int? = null)
 
-// Registro tal como lo devuelve el pull. La versión llegará cuando el servidor la implemente
+// Cuerpo del 409: el registro como está en el servidor
+@Serializable
+data class ConflictoRemoto(val actual: PruebaRemota? = null)
+
+// Registro tal como lo devuelve el pull
 @Serializable
 data class PruebaRemota(
     val entityId: String,

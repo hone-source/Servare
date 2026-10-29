@@ -1,17 +1,22 @@
 package com.spiralsoft.servare.data.remote
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import retrofit2.Response
 import java.io.IOException
 import java.net.SocketTimeoutException
 import javax.inject.Inject
 import com.spiralsoft.servare.data.local.entity.PruebaEntity
+import com.spiralsoft.servare.domain.model.CausaConflicto
 
 // Fuente de datos remota, solo la usa el motor de sincronización.
 // Traduce cada respuesta a un ResultadoEnvio según la tabla de errores de docs/2.2.md
 class PruebaRemoteDataSource @Inject constructor(
-    private val api: PruebaApi
+    private val api: PruebaApi,
+    private val json: Json
 ) {
     suspend fun crear(operationId: String, prueba: PruebaEntity): ResultadoEnvio =
         ejecutar { api.crear(prueba.entityId, operationId, prueba.aRequest(baseVersion = null)) }
@@ -53,13 +58,17 @@ class PruebaRemoteDataSource @Inject constructor(
         ResultadoEnvio.Definitivo("El servidor devolvió una respuesta que la app no entiende")
     }
 
-    private fun traducir(respuesta: Response<PruebaResponse>): ResultadoEnvio {
+    private suspend fun traducir(respuesta: Response<PruebaResponse>): ResultadoEnvio {
         val codigo = respuesta.code()
         return when {
             respuesta.isSuccessful -> ResultadoEnvio.Confirmada(respuesta.body()?.version)
             codigo == 401 || codigo == 403 -> ResultadoEnvio.SesionExpirada
-            codigo == 409 -> ResultadoEnvio.Conflicto("El registro cambió en el servidor")
-            codigo == 404 || codigo == 410 -> ResultadoEnvio.Conflicto("El registro ya no existe en el servidor")
+            codigo == 409 -> ResultadoEnvio.Conflicto(
+                "El registro cambió en el servidor", CausaConflicto.VERSION_DISTINTA, leerActual(respuesta)
+            )
+            codigo == 404 || codigo == 410 -> ResultadoEnvio.Conflicto(
+                "El registro ya no existe en el servidor", CausaConflicto.INEXISTENTE_EN_SERVIDOR
+            )
             codigo == 413 -> ResultadoEnvio.Definitivo("El servidor rechazó el tamaño del envío")
             codigo == 422 -> ResultadoEnvio.Definitivo("El servidor rechazó los datos por no ser válidos")
             codigo == 408 || codigo == 429 || codigo >= 500 ->
@@ -67,6 +76,19 @@ class PruebaRemoteDataSource @Inject constructor(
             else -> ResultadoEnvio.Definitivo("El servidor rechazó la operación (HTTP $codigo)")
         }
     }
+
+    // El 409 trae el registro vigente. Sin él (cuerpo ilegible) el conflicto sigue siéndolo,
+    // pero el usuario no podrá compararlo: solo descartar
+    private suspend fun leerActual(respuesta: Response<PruebaResponse>): PruebaRemota? =
+        withContext(Dispatchers.IO) {
+            try {
+                respuesta.errorBody()?.string()?.let { json.decodeFromString<ConflictoRemoto>(it).actual }
+            } catch (_: SerializationException) {
+                null
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+        }
 }
 
 private fun PruebaEntity.aRequest(baseVersion: Int?) =
