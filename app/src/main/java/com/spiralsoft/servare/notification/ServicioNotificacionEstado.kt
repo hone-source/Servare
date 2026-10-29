@@ -101,6 +101,17 @@ class ServicioNotificacionEstado @Inject constructor(
         _resultados.tryEmit(AvisoResultado(mensaje))
     }
 
+    // Lo llama el motor cuando el pull quitó del dispositivo registros borrados en el servidor.
+    // El refresco manual no pasa por aquí: devuelve los títulos y arma su mensaje con el texto de abajo
+    fun eliminadosEnServidor(titulos: List<String>) {
+        if (titulos.isEmpty()) return
+        _resultados.tryEmit(AvisoResultado(textoEliminadosEnServidor(titulos)))
+    }
+
+    fun textoEliminadosEnServidor(titulos: List<String>): String =
+        if (titulos.size == 1) "«${titulos.single()}» ya no existe en el servidor y se quitó de la lista"
+        else "${titulos.size} registros ya no existen en el servidor y se quitaron de la lista"
+
     // Un aviso por cada FALLIDA o CONFLICTO, con sus BLOQUEADAS contadas dentro. Una BLOQUEADA cuyo origen
     // es de otro registro (dependsOn) se avisa sola
     private fun traducirProblemas(operaciones: List<OperacionConProblema>): List<AvisoOperacion> {
