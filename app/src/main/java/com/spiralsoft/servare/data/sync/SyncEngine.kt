@@ -28,6 +28,7 @@ import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.model.TipoEntidad
 import com.spiralsoft.servare.domain.model.TipoOperacion
+import com.spiralsoft.servare.domain.repository.ResultadoRefresco
 
 sealed interface ResultadoCiclo {
     // reintentoEnMs: cuándo vence el siguiente REINTENTABLE, si queda alguno
@@ -95,19 +96,14 @@ class SyncEngine @Inject constructor(
         }
 
         // Push antes de pull: el servidor ya conoce los cambios locales cuando envía los suyos
-        var errorPull: String? = null
-        when (val pull = remoto.listar()) {
-            is ResultadoPull.Datos -> aplicarPull(pull.pruebas)
-            ResultadoPull.SesionExpirada -> {
-                gestorSesion.expirar()
-                return ResultadoCiclo.SesionExpirada
-            }
-            ResultadoPull.SinServidor -> {
-                monitor.reportarServidorNoAlcanzable()
-                return ResultadoCiclo.SinServidor
-            }
-            is ResultadoPull.Fallo -> errorPull = pull.motivo
+        val descarga = descargar()
+        val errorPull = when (val pull = descarga.pull) {
+            is ResultadoPull.Datos -> null
+            ResultadoPull.SesionExpirada -> return ResultadoCiclo.SesionExpirada
+            ResultadoPull.SinServidor -> return ResultadoCiclo.SinServidor
+            is ResultadoPull.Fallo -> pull.motivo
         }
+        notificaciones.eliminadosEnServidor(descarga.eliminadas)
 
         val reintentoOperaciones = operationDao.proximoIntento()?.let { it - clock.millis() }
         // Mientras la descarga inicial no termine la lista está vacía sin explicación definitiva:
@@ -117,11 +113,44 @@ class SyncEngine @Inject constructor(
         ResultadoCiclo.Terminado(listOfNotNull(reintentoOperaciones, reintentoDescarga).minOrNull(), errorPull)
     }
 
+    // Refresco manual del usuario: solo pull, sin enviar la cola.
+    // Es seguro sin push previo porque un registro con operaciones sin terminar no se sobrescribe.
+    // Corre bajo el mismo candado que el ciclo, nunca a la vez
+    suspend fun refrescar(): ResultadoRefresco = candado.withLock {
+        if (gestorSesion.estado.value !is EstadoSesion.ConSesion) return ResultadoRefresco.SinSesion
+        if (!monitor.confirmarAlcanzabilidad()) return ResultadoRefresco.SinServidor
+        val descarga = descargar()
+        when (descarga.pull) {
+            is ResultadoPull.Datos -> ResultadoRefresco.Actualizada(descarga.eliminadas)
+            ResultadoPull.SesionExpirada -> ResultadoRefresco.SinSesion
+            ResultadoPull.SinServidor -> ResultadoRefresco.SinServidor
+            is ResultadoPull.Fallo -> ResultadoRefresco.ErrorDescarga
+        }
+    }
+
+    // eliminadas: títulos de los registros que se quitaron del dispositivo por estar borrados en el servidor
+    private class Descarga(val pull: ResultadoPull, val eliminadas: List<String> = emptyList())
+
+    // Descarga y aplica los registros del servidor.
+    // Las consecuencias de perder la sesión o el servidor se aplican aquí,
+    // quien llama solo decide cómo informarlas
+    private suspend fun descargar(): Descarga {
+        return when (val pull = remoto.listar()) {
+            is ResultadoPull.Datos -> Descarga(pull, aplicarPull(pull.pruebas))
+            ResultadoPull.SesionExpirada -> Descarga(pull).also { gestorSesion.expirar() }
+            ResultadoPull.SinServidor -> Descarga(pull).also { monitor.reportarServidorNoAlcanzable() }
+            is ResultadoPull.Fallo -> Descarga(pull)
+        }
+    }
+
     // Un registro con operaciones sin terminar no se sobrescribe. Leer qué está protegido y escribir
     // van en la misma transacción: un guardado del usuario que llegue en medio no se pisa.
     // Pendiente (el servidor aún no lo ofrece): versión y marcas de borrado, para el pull incremental,
-    // detectar conflictos con versión distinta y quitar lo borrado en el servidor
-    private suspend fun aplicarPull(remotas: List<PruebaRemota>) = database.withTransaction {
+    // y detectar conflictos con versión distinta.
+    // El pull trae la lista completa, así que lo que el servidor ya conocía y deja de venir está borrado allí:
+    // se quita del dispositivo y se devuelven sus títulos para avisar al usuario.
+    // Pendiente (el servidor aún no lo ofrece): marcas de borrado, para el pull incremental
+    private suspend fun aplicarPull(remotas: List<PruebaRemota>): List<String> = database.withTransaction {
         val protegidas = operationDao.entidadesConOperacionesSinTerminar(TipoEntidad.PRUEBA).toSet() +
             eliminacionDao.entidadesEliminadas(TipoEntidad.PRUEBA)
         for ((entityId, titulo, texto, numero, createdAt, version) in remotas) {
@@ -138,8 +167,13 @@ class SyncEngine @Inject constructor(
             )
             if (nueva != local) pruebaDao.upsert(nueva)
         }
+        val vigentes = remotas.mapTo(HashSet()) { it.entityId }
+        val eliminadas = pruebaDao.confirmadasPorElServidor()
+            .filter { it.entityId !in vigentes && it.entityId !in protegidas }
+        eliminadas.forEach { pruebaDao.deleteById(it.entityId) }
         // Una lista vacía también es una descarga completa: el servidor no tiene registros
         syncInicialDao.marcarCompletada(SyncInicialEntity(TipoEntidad.PRUEBA, clock.millis()))
+        eliminadas.map { it.titulo }
     }
 
     private suspend fun procesar(op: OperationEntity, conProblema: MutableList<OperacionConProblema>): Siguiente {
