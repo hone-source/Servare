@@ -18,6 +18,7 @@ import com.spiralsoft.servare.data.local.entity.EliminacionEntity
 import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.data.local.entity.PruebaEntity
 import com.spiralsoft.servare.data.remote.PruebaRemota
+import com.spiralsoft.servare.data.sync.SyncEngine
 import com.spiralsoft.servare.data.sync.SyncScheduler
 import com.spiralsoft.servare.domain.model.AccionOperacion
 import com.spiralsoft.servare.domain.model.CausaConflicto
@@ -29,6 +30,7 @@ import com.spiralsoft.servare.domain.repository.PruebaRepository
 import com.spiralsoft.servare.domain.repository.ResultadoEliminacionPrueba
 import com.spiralsoft.servare.domain.repository.ResultadoGuardadoPrueba
 import com.spiralsoft.servare.domain.repository.ResultadoObtencionPrueba
+import com.spiralsoft.servare.domain.repository.ResultadoRefresco
 import com.spiralsoft.servare.domain.repository.ResultadoResolucion
 
 class DefaultPruebaRepository @Inject constructor(
@@ -38,6 +40,7 @@ class DefaultPruebaRepository @Inject constructor(
     private val eliminacionDao: EliminacionDao,
     private val syncInicialDao: SyncInicialDao,
     private val syncScheduler: SyncScheduler,
+    private val syncEngine: SyncEngine,
     private val json: Json,
     private val clock: Clock
 ) : PruebaRepository {
@@ -164,6 +167,8 @@ class DefaultPruebaRepository @Inject constructor(
     } catch (_: SQLiteException) {
         ResultadoEliminacionPrueba.ErrorAlmacenamiento
     }
+
+    override suspend fun refrescar(): ResultadoRefresco = syncEngine.refrescar()
 
     override suspend fun resolver(operationId: String, accion: AccionOperacion): ResultadoResolucion = try {
         // Cada acción es una sola transacción: el estado se comprueba dentro, así que el motor no se cruza
