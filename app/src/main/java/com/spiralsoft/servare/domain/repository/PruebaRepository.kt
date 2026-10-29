@@ -21,6 +21,18 @@ interface PruebaRepository {
 
     // El usuario decide qué hacer con una operación FALLIDA o en CONFLICTO
     suspend fun resolver(operationId: String, accion: AccionOperacion): ResultadoResolucion
+
+    // El usuario pide comprobar los cambios del servidor.
+    // Solo descarga: no envía la cola
+    suspend fun refrescar(): ResultadoRefresco
+}
+
+sealed interface ResultadoRefresco {
+    // eliminadas: títulos de los registros que se quitaron por estar borrados en el servidor
+    data class Actualizada(val eliminadas: List<String> = emptyList()) : ResultadoRefresco
+    data object SinSesion : ResultadoRefresco
+    data object SinServidor : ResultadoRefresco
+    data object ErrorDescarga : ResultadoRefresco
 }
 
 sealed interface ResultadoResolucion {
