@@ -16,9 +16,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.spiralsoft.servare.domain.model.EstadoSesion
-import com.spiralsoft.servare.ui.screen.FormPruebaScreen
+import com.spiralsoft.servare.ui.screen.FormFichaScreen
 import com.spiralsoft.servare.ui.screen.InicioScreen
-import com.spiralsoft.servare.ui.screen.ListPruebaScreen
+import com.spiralsoft.servare.ui.screen.ListFichaScreen
 import com.spiralsoft.servare.ui.screen.LoginScreen
 import com.spiralsoft.servare.ui.screen.RegistroScreen
 import com.spiralsoft.servare.ui.viewModel.SesionViewModel
@@ -43,7 +43,7 @@ fun AppNavHost(
     // Sin sesión lo primero que se ve es el inicio, que ofrece crear cuenta o iniciar sesión.
     // Con la sesión expirada se entra a la app igual, sigue funcionando con lo guardado
     val startDestination = remember {
-        if (sesion is EstadoSesion.ConSesion || sesion is EstadoSesion.Expirada) Screen.PruebaList.route
+        if (sesion is EstadoSesion.ConSesion || sesion is EstadoSesion.Expirada) Screen.FichaList.route
         else Screen.Inicio.route
     }
 
@@ -54,10 +54,13 @@ fun AppNavHost(
         val enAcceso = ruta == Screen.Inicio.route || ruta == Screen.Registro.route || ruta == Screen.Login.route
         when (sesion) {
             is EstadoSesion.ConSesion -> if (enAcceso) {
-                // Si venía de la lista (sesión expirada) vuelve a ella
-                // si venía del inicio, entra a la lista
-                if (!navController.popBackStack(Screen.PruebaList.route, inclusive = false)) {
-                    navController.navigate(Screen.PruebaList.route) {
+                // Si venía de la app (sesión expirada) vuelve a la pantalla en la que estaba,
+                // si venía del inicio, entra a la lista de fichas
+                val dentroDeLaApp = runCatching { navController.getBackStackEntry(Screen.FichaList.route) }.isSuccess
+                if (dentroDeLaApp) {
+                    navController.popBackStack()
+                } else {
+                    navController.navigate(Screen.FichaList.route) {
                         popUpTo(Screen.Inicio.route) { inclusive = true }
                     }
                 }
@@ -91,29 +94,28 @@ fun AppNavHost(
             LoginScreen(onVolver = { navController.popBackStack() })
         }
 
-        // Pantallas de prueba: formulario simple
-        composable(Screen.PruebaList.route) { entry ->
+        // Fichas técnicas de levantamiento: es la raíz de la app con sesión
+        composable(Screen.FichaList.route) { entry ->
             val mensaje by entry.savedStateHandle.getStateFlow<String?>(MENSAJE, null).collectAsState()
-            ListPruebaScreen(
-                onVolver = { navController.popBackStack() },
-                onNuevo = { navController.navigate(Screen.PruebaForm.createRoute()) },
-                onEditar = { entityId -> navController.navigate(Screen.PruebaForm.createRoute(entityId)) },
+            ListFichaScreen(
+                onNueva = { navController.navigate(Screen.FichaForm.createRoute()) },
+                onEditar = { entityId -> navController.navigate(Screen.FichaForm.createRoute(entityId)) },
                 onIniciarSesion = { navController.navigate(Screen.Login.route) },
                 mensaje = mensaje,
                 onMensajeMostrado = { entry.savedStateHandle[MENSAJE] = null }
             )
         }
         composable(
-            Screen.PruebaForm.route,
+            Screen.FichaForm.route,
             arguments = listOf(navArgument("entityId") {
                 type = NavType.StringType
                 nullable = true
                 defaultValue = null
             })
         ) {
-            FormPruebaScreen(
+            FormFichaScreen(
                 onVolver = { navController.popBackStack() },
-                onSalir = { mensaje ->
+                onGuardada = { mensaje ->
                     navController.previousBackStackEntry?.savedStateHandle?.set(MENSAJE, mensaje)
                     navController.popBackStack()
                 }
