@@ -19,6 +19,7 @@ import javax.inject.Singleton
 import com.spiralsoft.servare.data.connectivity.ConnectivityMonitor
 import com.spiralsoft.servare.data.local.dao.OperacionConProblema
 import com.spiralsoft.servare.data.local.dao.OperationDao
+import com.spiralsoft.servare.data.remote.FichaRemota
 import com.spiralsoft.servare.data.remote.PruebaRemota
 import com.spiralsoft.servare.data.sesion.GestorSesion
 import com.spiralsoft.servare.domain.model.AccionOperacion
@@ -33,6 +34,8 @@ import com.spiralsoft.servare.domain.model.CausaConflicto
 import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.model.EstadoConectividad
+import com.spiralsoft.servare.domain.model.Ficha
+import com.spiralsoft.servare.domain.model.TipoEntidad
 import com.spiralsoft.servare.domain.model.EstadoConectividad.CONECTADO
 import com.spiralsoft.servare.domain.model.EstadoConectividad.RED_SIN_SERVIDOR
 import com.spiralsoft.servare.domain.model.EstadoConectividad.SIN_RED
@@ -133,7 +136,7 @@ class ServicioNotificacionEstado @Inject constructor(
             1 -> " También se descarta 1 cambio posterior."
             else -> " También se descartan $enEspera cambios posteriores."
         }
-        val actual = actualDelServidor(op)
+        val servidor = servidorActual(op)
 
         if (op.status != EstadoOperacion.CONFLICTO) return AvisoOperacion(
             op.operationId,
@@ -152,7 +155,7 @@ class ServicioNotificacionEstado @Inject constructor(
 
         // Con la versión del servidor se puede elegir cuál conservar; sin ella (el 404, o un 409 sin cuerpo)
         // solo queda recrear el registro o descartar el cambio
-        val porVersion = op.conflictCause != CausaConflicto.INEXISTENTE_EN_SERVIDOR && actual?.version != null
+        val porVersion = op.conflictCause != CausaConflicto.INEXISTENTE_EN_SERVIDOR && servidor?.version != null
         val eliminar = op.type == TipoOperacion.ELIMINAR
         return AvisoOperacion(
             op.operationId,
@@ -176,17 +179,11 @@ class ServicioNotificacionEstado @Inject constructor(
                     (if (eliminar) "El registro volverá a mostrarse con la versión del servidor."
                     else "Tus cambios se reemplazarán por la versión del servidor.") + posteriores
             ),
-            comparacion = actual?.let {
-                listOf(
-                    CampoComparado("Título", op.titulo, it.titulo),
-                    CampoComparado("Texto", op.texto, it.texto),
-                    CampoComparado("Número", op.numero?.toString(), it.numero.toString())
-                )
-            }
+            comparacion = servidor?.comparacion
         )
     }
 
-    // Qué le pasa al registro del dispositivo si el usuario abandona el cambio (ver DefaultPruebaRepository)
+    // Qué le pasa al registro del dispositivo si el usuario abandona el cambio (ver ResolutorOperaciones)
     private fun efectoDescartar(op: OperacionConProblema): String {
         val inexistente = op.conflictCause == CausaConflicto.INEXISTENTE_EN_SERVIDOR
         return when {
@@ -200,9 +197,33 @@ class ServicioNotificacionEstado @Inject constructor(
         }
     }
 
+    // El registro vigente del servidor, con sus campos ya puestos junto a los del dispositivo
+    private class ServidorActual(val version: Int?, val comparacion: List<CampoComparado>)
+
     // null si el 409 no la trajo o no se puede leer
-    private fun actualDelServidor(op: OperacionConProblema): PruebaRemota? =
-        op.serverSnapshot?.let { runCatching { json.decodeFromString<PruebaRemota>(it) }.getOrNull() }
+    private fun servidorActual(op: OperacionConProblema): ServidorActual? = op.serverSnapshot?.let { snapshot ->
+        runCatching {
+            when (op.entityType) {
+                TipoEntidad.PRUEBA -> json.decodeFromString<PruebaRemota>(snapshot).let {
+                    ServidorActual(
+                        it.version,
+                        listOf(
+                            CampoComparado("Título", op.titulo, it.titulo),
+                            CampoComparado("Texto", op.texto, it.texto),
+                            CampoComparado("Número", op.numero?.toString(), it.numero.toString())
+                        )
+                    )
+                }
+                TipoEntidad.FICHA -> json.decodeFromString<FichaRemota>(snapshot).let {
+                    // Si la ficha local no se puede leer se compara contra una vacía
+                    val local = op.datosFicha?.let { datos ->
+                        runCatching { json.decodeFromString<Ficha>(datos) }.getOrNull()
+                    }
+                    ServidorActual(it.version, compararFichas(local, it.datos))
+                }
+            }
+        }.getOrNull()
+    }
 
     private fun traducirBloqueada(op: OperacionConProblema) = AvisoOperacion(
         op.operationId,
