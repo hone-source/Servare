@@ -16,6 +16,8 @@ object DatabaseModule {
 
     @Provides fun pruebaDao(db: AppDatabase) = db.pruebaDao() //Para pruebas
 
+    @Provides fun fichaDao(db: AppDatabase) = db.fichaDao()
+
     @Provides @Singleton
     fun database(@ApplicationContext ctx: Context): AppDatabase =
         Room.databaseBuilder(
