@@ -213,7 +213,6 @@ interface OperationDao {
         SELECT o.operationId, o.type, o.status, o.entityType, o.entityId, o.lastError,
                o.conflictCause, o.serverSnapshot,
                COALESCE(p.titulo, f.nombre) AS titulo, p.texto AS texto, p.numero AS numero,
-               f.datos AS datosFicha,
                (SELECT COUNT(*) FROM operaciones x
                 WHERE x.entityType = o.entityType AND x.entityId = o.entityId AND x.createdAt > o.createdAt
                 AND x.status IN ('BLOQUEADA', 'PENDIENTE', 'REINTENTABLE')) AS posteriores
