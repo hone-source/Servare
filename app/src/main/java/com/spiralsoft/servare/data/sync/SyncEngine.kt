@@ -3,7 +3,6 @@ package com.spiralsoft.servare.data.sync
 import androidx.room.withTransaction
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.Json
 import java.time.Clock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -15,16 +14,18 @@ import com.spiralsoft.servare.data.local.dao.OperacionConProblema
 import com.spiralsoft.servare.data.local.dao.OperationDao
 import com.spiralsoft.servare.data.local.dao.PruebaDao
 import com.spiralsoft.servare.data.local.dao.SyncInicialDao
+import com.spiralsoft.servare.data.local.dao.aCompleta
+import com.spiralsoft.servare.data.local.dao.mismoContenido
 import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.data.local.entity.PruebaEntity
 import com.spiralsoft.servare.data.local.entity.SyncInicialEntity
-import com.spiralsoft.servare.data.local.entity.aEntidad
 import com.spiralsoft.servare.data.remote.FichaRemota
 import com.spiralsoft.servare.data.remote.FichaRemoteDataSource
 import com.spiralsoft.servare.data.remote.PruebaRemota
 import com.spiralsoft.servare.data.remote.PruebaRemoteDataSource
 import com.spiralsoft.servare.data.remote.ResultadoEnvio
 import com.spiralsoft.servare.data.remote.ResultadoPull
+import com.spiralsoft.servare.data.remote.aFicha
 import com.spiralsoft.servare.data.sesion.GestorSesion
 import com.spiralsoft.servare.notification.ServicioNotificacionEstado
 import com.spiralsoft.servare.domain.model.CausaConflicto
@@ -57,7 +58,6 @@ class SyncEngine @Inject constructor(
     private val monitor: ConnectivityMonitor,
     private val gestorSesion: GestorSesion,
     private val notificaciones: ServicioNotificacionEstado,
-    private val json: Json,
     private val clock: Clock
 ) {
     // Segunda barrera del single-flight: el ciclo normal y el de reintento usan colas de trabajo distintas
@@ -209,14 +209,14 @@ class SyncEngine @Inject constructor(
     private suspend fun aplicarPullFichas(remotas: List<FichaRemota>): List<String> = database.withTransaction {
         val protegidas = operationDao.entidadesConOperacionesSinTerminar(TipoEntidad.FICHA).toSet() +
             eliminacionDao.entidadesEliminadas(TipoEntidad.FICHA)
-        for (remota in remotas) {
-            if (remota.entityId in protegidas) continue
-            val local = fichaDao.findById(remota.entityId)
+        for ((entityId, datos, createdAt, version) in remotas) {
+            if (entityId in protegidas) continue
+            val local = fichaDao.findCompletaById(entityId)
             // Sin versión del servidor se conserva la que ya se conocía
-            val nueva = remota.datos.aEntidad(
-                remota.entityId, remota.createdAt, remota.version ?: local?.version, json
+            val nueva = datos.aFicha().aCompleta(
+                entityId, createdAt, version ?: local?.ficha?.version
             )
-            if (nueva != local) fichaDao.upsert(nueva)
+            if (local == null || !nueva.mismoContenido(local)) fichaDao.upsert(nueva)
         }
         val vigentes = remotas.mapTo(HashSet()) { it.entityId }
         val eliminadas = fichaDao.confirmadasPorElServidor()
@@ -293,9 +293,9 @@ class SyncEngine @Inject constructor(
             TipoOperacion.ADJUNTAR -> ResultadoEnvio.Definitivo("Los adjuntos aún no se pueden enviar")
         }
         TipoEntidad.FICHA -> when (op.type) {
-            TipoOperacion.CREAR -> fichaDao.findById(op.entityId)
+            TipoOperacion.CREAR -> fichaDao.findCompletaById(op.entityId)
                 ?.let { remotoFichas.crear(op.operationId, it) } ?: registroAusente()
-            TipoOperacion.ACTUALIZAR -> fichaDao.findById(op.entityId)
+            TipoOperacion.ACTUALIZAR -> fichaDao.findCompletaById(op.entityId)
                 ?.let { remotoFichas.actualizar(op.operationId, it, op.baseVersion) } ?: registroAusente()
             TipoOperacion.ELIMINAR -> remotoFichas.eliminar(op.operationId, op.entityId, op.baseVersion)
             TipoOperacion.ADJUNTAR -> ResultadoEnvio.Definitivo("Los adjuntos aún no se pueden enviar")
