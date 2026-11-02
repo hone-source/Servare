@@ -212,12 +212,14 @@ interface OperationDao {
         """
         SELECT o.operationId, o.type, o.status, o.entityType, o.entityId, o.lastError,
                o.conflictCause, o.serverSnapshot,
-               p.titulo AS titulo, p.texto AS texto, p.numero AS numero,
+               COALESCE(p.titulo, f.nombre) AS titulo, p.texto AS texto, p.numero AS numero,
+               f.datos AS datosFicha,
                (SELECT COUNT(*) FROM operaciones x
                 WHERE x.entityType = o.entityType AND x.entityId = o.entityId AND x.createdAt > o.createdAt
                 AND x.status IN ('BLOQUEADA', 'PENDIENTE', 'REINTENTABLE')) AS posteriores
         FROM operaciones o
         LEFT JOIN pruebas p ON o.entityType = 'PRUEBA' AND p.entityId = o.entityId
+        LEFT JOIN fichas f ON o.entityType = 'FICHA' AND f.entityId = o.entityId
         WHERE o.status IN ('FALLIDA', 'CONFLICTO', 'BLOQUEADA')
         ORDER BY o.createdAt ASC
         """
