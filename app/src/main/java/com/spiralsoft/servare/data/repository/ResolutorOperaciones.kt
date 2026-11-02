@@ -10,11 +10,12 @@ import com.spiralsoft.servare.data.local.dao.EliminacionDao
 import com.spiralsoft.servare.data.local.dao.FichaDao
 import com.spiralsoft.servare.data.local.dao.OperationDao
 import com.spiralsoft.servare.data.local.dao.PruebaDao
+import com.spiralsoft.servare.data.local.dao.aCompleta
 import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.data.local.entity.PruebaEntity
-import com.spiralsoft.servare.data.local.entity.aEntidad
 import com.spiralsoft.servare.data.remote.FichaRemota
 import com.spiralsoft.servare.data.remote.PruebaRemota
+import com.spiralsoft.servare.data.remote.aFicha
 import com.spiralsoft.servare.data.sync.SyncScheduler
 import com.spiralsoft.servare.domain.model.AccionOperacion
 import com.spiralsoft.servare.domain.model.CausaConflicto
@@ -138,7 +139,7 @@ class ResolutorOperaciones @Inject constructor(
                 TipoEntidad.FICHA -> json.decodeFromString<FichaRemota>(snapshot).let { servidor ->
                     RegistroServidor(servidor.version) {
                         fichaDao.upsert(
-                            servidor.datos.aEntidad(op.entityId, servidor.createdAt, servidor.version, json)
+                            servidor.datos.aFicha().aCompleta(op.entityId, servidor.createdAt, servidor.version)
                         )
                     }
                 }
