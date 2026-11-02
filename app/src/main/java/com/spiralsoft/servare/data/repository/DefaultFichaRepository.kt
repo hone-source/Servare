@@ -4,8 +4,6 @@ import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteFullException
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 import java.time.Clock
 import java.util.UUID
 import javax.inject.Inject
@@ -14,10 +12,10 @@ import com.spiralsoft.servare.data.local.dao.EliminacionDao
 import com.spiralsoft.servare.data.local.dao.FichaDao
 import com.spiralsoft.servare.data.local.dao.OperationDao
 import com.spiralsoft.servare.data.local.dao.SyncInicialDao
+import com.spiralsoft.servare.data.local.dao.aCompleta
+import com.spiralsoft.servare.data.local.dao.aFicha
 import com.spiralsoft.servare.data.local.entity.EliminacionEntity
 import com.spiralsoft.servare.data.local.entity.OperationEntity
-import com.spiralsoft.servare.data.local.entity.aEntidad
-import com.spiralsoft.servare.data.local.entity.aFicha
 import com.spiralsoft.servare.data.sync.SyncEngine
 import com.spiralsoft.servare.data.sync.SyncScheduler
 import com.spiralsoft.servare.domain.model.AccionOperacion
@@ -42,7 +40,6 @@ class DefaultFichaRepository @Inject constructor(
     private val syncScheduler: SyncScheduler,
     private val syncEngine: SyncEngine,
     private val resolutor: ResolutorOperaciones,
-    private val json: Json,
     private val clock: Clock
 ) : FichaRepository {
 
@@ -52,12 +49,9 @@ class DefaultFichaRepository @Inject constructor(
         syncInicialDao.observarCompletada(TipoEntidad.FICHA)
 
     override suspend fun obtener(entityId: String): ResultadoObtencionFicha = try {
-        fichaDao.findActivaById(entityId)?.let { ResultadoObtencionFicha.Encontrada(it.aFicha(json)) }
+        fichaDao.findCompletaActivaById(entityId)?.let { ResultadoObtencionFicha.Encontrada(it.aFicha()) }
             ?: ResultadoObtencionFicha.NoEncontrada
     } catch (_: SQLiteException) {
-        ResultadoObtencionFicha.ErrorAlmacenamiento
-    } catch (_: SerializationException) {
-        // El JSON guardado no se puede leer: no se abre vacío, se perdería lo que contiene al guardar
         ResultadoObtencionFicha.ErrorAlmacenamiento
     }
 
@@ -69,7 +63,7 @@ class DefaultFichaRepository @Inject constructor(
         return try {
             // Outbox: la ficha y su operación PENDIENTE en una sola transacción
             database.withTransaction {
-                fichaDao.insert(ficha.limpia().aEntidad(id, ahora, version = null, json))
+                fichaDao.insert(ficha.limpia().aCompleta(id, ahora, version = null))
                 operationDao.insert(
                     OperationEntity(
                         operationId = UUID.randomUUID().toString(),
@@ -97,7 +91,7 @@ class DefaultFichaRepository @Inject constructor(
             // Outbox: el cambio y su operación PENDIENTE en una sola transacción
             val actualizada = database.withTransaction {
                 val existente = fichaDao.findActivaById(entityId) ?: return@withTransaction false
-                fichaDao.update(ficha.limpia().aEntidad(entityId, existente.createdAt, existente.version, json))
+                fichaDao.update(ficha.limpia().aCompleta(entityId, existente.createdAt, existente.version))
                 // Si ya hay una operación sin enviar (CREAR o ACTUALIZAR), enviará este contenido al leerlo
                 if (operationDao.buscarAgrupable(TipoEntidad.FICHA, entityId) == null) {
                     operationDao.insert(
