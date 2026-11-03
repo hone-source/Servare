@@ -9,11 +9,11 @@ sealed interface ResultadoEnvio {
     data object Incierto : ResultadoEnvio
     // Timeout o 5xx: cuenta como intento. sinRespuesta (timeout) indica que el servidor dejó de ser alcanzable
     data class Temporal(val motivo: String, val sinRespuesta: Boolean = false) : ResultadoEnvio
-    // Versión distinta, 404 o 410. actual es el registro vigente que devuelve el 409
+    // Versión distinta, 404 o 410. actual es el JSON del registro vigente que devuelve el 409
     data class Conflicto(
         val motivo: String,
         val causa: CausaConflicto,
-        val actual: PruebaRemota? = null
+        val actual: String? = null
     ) : ResultadoEnvio
     // 422, 413 o regla de negocio
     data class Definitivo(val motivo: String) : ResultadoEnvio

@@ -22,21 +22,21 @@ interface PruebaApi {
         @Path("entityId") entityId: String,
         @Header(IDEMPOTENCY_KEY) operationId: String,
         @Body prueba: PruebaRequest
-    ): Response<PruebaResponse>
+    ): Response<VersionResponse>
 
     @PUT("api/pruebas/{entityId}")
     suspend fun actualizar(
         @Path("entityId") entityId: String,
         @Header(IDEMPOTENCY_KEY) operationId: String,
         @Body prueba: PruebaRequest
-    ): Response<PruebaResponse>
+    ): Response<VersionResponse>
 
     @DELETE("api/pruebas/{entityId}")
     suspend fun eliminar(
         @Path("entityId") entityId: String,
         @Header(IDEMPOTENCY_KEY) operationId: String,
         @Query("baseVersion") baseVersion: Int?
-    ): Response<PruebaResponse>
+    ): Response<VersionResponse>
 
     companion object {
         const val IDEMPOTENCY_KEY = "Idempotency-Key"

@@ -19,10 +19,11 @@ data class OperationEntity(
     val entityType: TipoEntidad,
     val entityId: String,
     val dependsOn: String? = null,
-    val createdAt: Long,                    // epoch ms; ordena las operaciones de una misma entidad
+    val createdAt: Long,                    // epoch ms: ordena las operaciones de una misma entidad
     val status: EstadoOperacion = EstadoOperacion.PENDIENTE,
     val attemptCount: Int = 0,
     val lastAttemptAt: Long? = null,
+    val finishedAt: Long? = null,           // epoch ms en que pasó a COMPLETADA o DESCARTADA; de aquí cuenta la retención
     val nextAttemptAt: Long? = null,
     val lastError: String? = null,
     val baseVersion: Int? = null,           // vacía en CREAR

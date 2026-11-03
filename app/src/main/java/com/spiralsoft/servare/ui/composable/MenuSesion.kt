@@ -26,13 +26,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.spiralsoft.servare.BuildConfig
 import com.spiralsoft.servare.ui.viewModel.CierreSesionViewModel
 
 // Menú de la cuenta: muestra con qué correo se entró y permite cerrar la sesión.
 // Cerrar la sesión borra los datos del dispositivo, así que se pide confirmación
 // avisando de lo que se perdería
 @Composable
-fun MenuSesion(viewModel: CierreSesionViewModel = hiltViewModel()) {
+fun MenuSesion(
+    // Acceso a la entidad de prueba, solo en el build debug (null: no se ofrece)
+    onPruebas: (() -> Unit)? = null,
+    viewModel: CierreSesionViewModel = hiltViewModel()
+) {
     val correo by viewModel.correo.collectAsState()
     val state by viewModel.state.collectAsState()
     var abierto by rememberSaveable { mutableStateOf(false) }
@@ -47,6 +52,15 @@ fun MenuSesion(viewModel: CierreSesionViewModel = hiltViewModel()) {
                     text = { Text(it, style = MaterialTheme.typography.bodySmall) },
                     onClick = {},
                     enabled = false
+                )
+            }
+            if (BuildConfig.DEBUG && onPruebas != null) {
+                DropdownMenuItem(
+                    text = { Text("Pruebas (debug)") },
+                    onClick = {
+                        abierto = false
+                        onPruebas()
+                    }
                 )
             }
             DropdownMenuItem(
@@ -93,7 +107,7 @@ fun MenuSesion(viewModel: CierreSesionViewModel = hiltViewModel()) {
 }
 
 private const val DATOS_LOCALES =
-    "Se quitarán de este dispositivo los registros guardados; volverás a descargarlos al iniciar sesión."
+    "Se quitarán de este dispositivo los registros guardados, volverás a descargarlos al iniciar sesión."
 
 private fun descripcion(cambiosSinEnviar: Int?): String = when {
     cambiosSinEnviar == null ->
