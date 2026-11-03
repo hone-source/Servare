@@ -136,7 +136,7 @@ fun ListPruebaScreen(
                         )
                     }
                 }
-                state.pruebas.isEmpty() -> Box(vacio, contentAlignment = Alignment.Center) {
+                state.registros.isEmpty() -> Box(vacio, contentAlignment = Alignment.Center) {
                     Text(
                         "Aún no hay registros. Pulsa + para crear uno.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -150,7 +150,7 @@ fun ListPruebaScreen(
                     contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.pruebas, key = { it.entityId }) { prueba ->
+                    items(state.registros, key = { it.entityId }) { prueba ->
                         TarjetaPrueba(
                             prueba,
                             onEditar = { onEditar(prueba.entityId) },
