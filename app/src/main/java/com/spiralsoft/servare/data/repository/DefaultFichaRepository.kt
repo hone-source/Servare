@@ -10,16 +10,13 @@ import javax.inject.Inject
 import com.spiralsoft.servare.data.local.AppDatabase
 import com.spiralsoft.servare.data.local.dao.EliminacionDao
 import com.spiralsoft.servare.data.local.dao.FichaDao
-import com.spiralsoft.servare.data.local.dao.OperationDao
 import com.spiralsoft.servare.data.local.dao.SyncInicialDao
 import com.spiralsoft.servare.data.local.dao.aCompleta
 import com.spiralsoft.servare.data.local.dao.aFicha
 import com.spiralsoft.servare.data.local.entity.EliminacionEntity
-import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.data.sync.SyncEngine
 import com.spiralsoft.servare.data.sync.SyncScheduler
 import com.spiralsoft.servare.domain.model.AccionOperacion
-import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.Ficha
 import com.spiralsoft.servare.domain.model.FichaResumen
 import com.spiralsoft.servare.domain.model.TipoEntidad
@@ -34,7 +31,7 @@ import com.spiralsoft.servare.domain.repository.ResultadoResolucion
 class DefaultFichaRepository @Inject constructor(
     private val database: AppDatabase,
     private val fichaDao: FichaDao,
-    private val operationDao: OperationDao,
+    private val encolador: EncoladorOperaciones,
     private val eliminacionDao: EliminacionDao,
     private val syncInicialDao: SyncInicialDao,
     private val syncScheduler: SyncScheduler,
@@ -64,16 +61,7 @@ class DefaultFichaRepository @Inject constructor(
             // Outbox: la ficha y su operación PENDIENTE en una sola transacción
             database.withTransaction {
                 fichaDao.insert(ficha.limpia().aCompleta(id, ahora, version = null))
-                operationDao.insert(
-                    OperationEntity(
-                        operationId = UUID.randomUUID().toString(),
-                        type = TipoOperacion.CREAR,
-                        entityType = TipoEntidad.FICHA,
-                        entityId = id,
-                        createdAt = ahora,
-                        status = EstadoOperacion.PENDIENTE
-                    )
-                )
+                encolador.encolar(TipoOperacion.CREAR, TipoEntidad.FICHA, id, createdAt = ahora)
             }
             syncScheduler.requestSync()
             ResultadoGuardadoFicha.Guardada(id)
@@ -92,20 +80,7 @@ class DefaultFichaRepository @Inject constructor(
             val actualizada = database.withTransaction {
                 val existente = fichaDao.findActivaById(entityId) ?: return@withTransaction false
                 fichaDao.update(ficha.limpia().aCompleta(entityId, existente.createdAt, existente.version))
-                // Si ya hay una operación sin enviar (CREAR o ACTUALIZAR), enviará este contenido al leerlo
-                if (operationDao.buscarAgrupable(TipoEntidad.FICHA, entityId) == null) {
-                    operationDao.insert(
-                        OperationEntity(
-                            operationId = UUID.randomUUID().toString(),
-                            type = TipoOperacion.ACTUALIZAR,
-                            entityType = TipoEntidad.FICHA,
-                            entityId = entityId,
-                            createdAt = clock.millis(),
-                            status = EstadoOperacion.PENDIENTE,
-                            baseVersion = existente.version
-                        )
-                    )
-                }
+                encolador.encolarActualizacion(TipoEntidad.FICHA, entityId, existente.version)
                 true
             }
             if (!actualizada) return ResultadoGuardadoFicha.NoEncontrada
@@ -125,16 +100,8 @@ class DefaultFichaRepository @Inject constructor(
             val existente = fichaDao.findActivaById(entityId) ?: return@withTransaction null
             val ahora = clock.millis()
             eliminacionDao.insert(EliminacionEntity(TipoEntidad.FICHA, entityId, ahora))
-            operationDao.insert(
-                OperationEntity(
-                    operationId = UUID.randomUUID().toString(),
-                    type = TipoOperacion.ELIMINAR,
-                    entityType = TipoEntidad.FICHA,
-                    entityId = entityId,
-                    createdAt = ahora,
-                    status = EstadoOperacion.PENDIENTE,
-                    baseVersion = existente.version
-                )
+            encolador.encolar(
+                TipoOperacion.ELIMINAR, TipoEntidad.FICHA, entityId, createdAt = ahora, baseVersion = existente.version
             )
             existente
         }
