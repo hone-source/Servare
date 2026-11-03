@@ -13,18 +13,13 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.spiralsoft.servare.data.connectivity.ConnectivityMonitor
-import com.spiralsoft.servare.data.local.dao.FichaDao
 import com.spiralsoft.servare.data.local.dao.OperacionConProblema
 import com.spiralsoft.servare.data.local.dao.OperationDao
-import com.spiralsoft.servare.data.local.dao.aFicha
-import com.spiralsoft.servare.data.remote.FichaRemota
-import com.spiralsoft.servare.data.remote.PruebaRemota
-import com.spiralsoft.servare.data.remote.aFicha
 import com.spiralsoft.servare.data.sesion.GestorSesion
+import com.spiralsoft.servare.data.sync.Adaptadores
 import com.spiralsoft.servare.domain.model.AccionOperacion
 import com.spiralsoft.servare.domain.model.AvisoConectividad
 import com.spiralsoft.servare.domain.model.AvisoDescargaInicial
@@ -37,7 +32,6 @@ import com.spiralsoft.servare.domain.model.CausaConflicto
 import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.model.EstadoConectividad
-import com.spiralsoft.servare.domain.model.TipoEntidad
 import com.spiralsoft.servare.domain.model.EstadoConectividad.CONECTADO
 import com.spiralsoft.servare.domain.model.EstadoConectividad.RED_SIN_SERVIDOR
 import com.spiralsoft.servare.domain.model.EstadoConectividad.SIN_RED
@@ -50,8 +44,7 @@ class ServicioNotificacionEstado @Inject constructor(
     private val connectivityMonitor: ConnectivityMonitor,
     gestorSesion: GestorSesion,
     operationDao: OperationDao,
-    private val fichaDao: FichaDao,
-    private val json: Json
+    private val adaptadores: Adaptadores
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -202,27 +195,16 @@ class ServicioNotificacionEstado @Inject constructor(
     private class ServidorActual(val version: Int?, val comparacion: List<CampoComparado>)
 
     // null si el 409 no la trajo o no se puede leer
-    private suspend fun servidorActual(op: OperacionConProblema): ServidorActual? = op.serverSnapshot?.let { snapshot ->
-        runCatching {
-            when (op.entityType) {
-                TipoEntidad.PRUEBA -> json.decodeFromString<PruebaRemota>(snapshot).let {
-                    ServidorActual(
-                        it.version,
-                        listOf(
-                            CampoComparado("Título", op.titulo, it.titulo),
-                            CampoComparado("Texto", op.texto, it.texto),
-                            CampoComparado("Número", op.numero?.toString(), it.numero.toString())
-                        )
-                    )
-                }
-                TipoEntidad.FICHA -> json.decodeFromString<FichaRemota>(snapshot).let {
-                    // Si la ficha ya no está en el dispositivo se compara contra una vacía
-                    val local = fichaDao.findCompletaById(op.entityId)?.aFicha()
-                    ServidorActual(it.version, compararFichas(local, it.datos.aFicha()))
+    private suspend fun servidorActual(op: OperacionConProblema): ServidorActual? =
+        op.serverSnapshot
+            ?.let { adaptadores[op.entityType].leerServidor(op.entityId, it) }
+            ?.let { servidor ->
+                try {
+                    ServidorActual(servidor.version, servidor.comparacion())
+                } catch (_: SQLiteException) {
+                    null // sin poder leer el registro del dispositivo, el aviso sale sin comparación
                 }
             }
-        }.getOrNull()
-    }
 
     private fun traducirBloqueada(op: OperacionConProblema) = AvisoOperacion(
         op.operationId,
