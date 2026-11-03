@@ -229,18 +229,18 @@ interface OperationDao {
     @Query("SELECT MIN(nextAttemptAt) FROM operaciones WHERE status = 'REINTENTABLE'")
     suspend fun proximoIntento(): Long?
 
-    // Lo que requiere atención del usuario, de la más antigua a la más reciente. Se conserva hasta que decida
+    // Lo que requiere atención del usuario, de la más antigua a la más reciente. Se conserva hasta que decida.
+    // El título del registro no sale de aquí: lo pone quien traduce, con el adaptador de cada tipo,
+    // para que agregar un tipo de registro no obligue a tocar esta consulta
     @Query(
         """
         SELECT o.operationId, o.type, o.status, o.entityType, o.entityId, o.lastError,
                o.conflictCause, o.serverSnapshot,
-               COALESCE(p.titulo, f.nombre) AS titulo,
+               NULL AS titulo,
                (SELECT COUNT(*) FROM operaciones x
                 WHERE x.entityType = o.entityType AND x.entityId = o.entityId AND x.createdAt > o.createdAt
                 AND x.status IN ('BLOQUEADA', 'PENDIENTE', 'REINTENTABLE')) AS posteriores
         FROM operaciones o
-        LEFT JOIN pruebas p ON o.entityType = 'PRUEBA' AND p.entityId = o.entityId
-        LEFT JOIN fichas f ON o.entityType = 'FICHA' AND f.entityId = o.entityId
         WHERE o.status IN ('FALLIDA', 'CONFLICTO', 'BLOQUEADA')
         ORDER BY o.createdAt ASC
         """
