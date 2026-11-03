@@ -79,9 +79,10 @@ class ServicioNotificacionEstado @Inject constructor(
     )
     val resultados: SharedFlow<AvisoResultado> = _resultados.asSharedFlow()
 
-    // Lo llama el motor al terminar de procesar la cola: cuántas operaciones confirmó el servidor y cuáles
-    // pasaron a FALLIDA o CONFLICTO. Es un solo mensaje por ciclo, así uno no tapa al otro; el detalle de
-    // cada problema está en problemasOperacion
+    // Lo llama el motor al terminar de procesar la cola,
+    // cuántas operaciones confirmó el servidor y cuáles pasaron a FALLIDA o CONFLICTO.
+    // Es un solo mensaje por ciclo, así uno no tapa al otro,
+    // el detalle de cada problema está en problemasOperacion
     fun operacionesFinalizadas(confirmadas: Int, conProblema: List<OperacionConProblema>) {
         if (confirmadas <= 0 && conProblema.isEmpty()) return
         val mensaje = if (conProblema.isEmpty()) {
@@ -113,7 +114,9 @@ class ServicioNotificacionEstado @Inject constructor(
 
     // Un aviso por cada FALLIDA o CONFLICTO, con sus BLOQUEADAS contadas dentro. Una BLOQUEADA cuyo origen
     // es de otro registro (dependsOn) se avisa sola
-    private suspend fun traducirProblemas(operaciones: List<OperacionConProblema>): List<AvisoOperacion> {
+    private suspend fun traducirProblemas(sinTitulo: List<OperacionConProblema>): List<AvisoOperacion> {
+        // null si el registro ya no está en el dispositivo
+        val operaciones = sinTitulo.map { it.copy(titulo = adaptadores[it.entityType].titulo(it.entityId)) }
         val (bloqueadas, origenes) = operaciones.partition { it.status == EstadoOperacion.BLOQUEADA }
         val conOrigen = origenes.map { it.entityType to it.entityId }.toSet()
         return origenes.map { traducirOrigen(it, it.posteriores, servidorActual(it)) } +
@@ -147,7 +150,8 @@ class ServicioNotificacionEstado @Inject constructor(
             confirmaciones = mapOf(AccionOperacion.DESCARTAR to efectoDescartar(op) + posteriores)
         )
 
-        // Con la versión del servidor se puede elegir cuál conservar; sin ella (el 404, o un 409 sin cuerpo)
+        // Con la versión del servidor se puede elegir cuál conservar,
+        // sin ella (el 404, o un 409 sin cuerpo)
         // solo queda recrear el registro o descartar el cambio
         val porVersion = op.conflictCause != CausaConflicto.INEXISTENTE_EN_SERVIDOR && servidor?.version != null
         val eliminar = op.type == TipoOperacion.ELIMINAR
