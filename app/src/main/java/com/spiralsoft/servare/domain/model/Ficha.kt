@@ -1,9 +1,6 @@
 package com.spiralsoft.servare.domain.model
 
-import kotlinx.serialization.Serializable
-
 // Campos de la ficha técnica de levantamiento
-@Serializable
 data class Ficha(
     // Registro de levantamiento
     val pueblo: PuebloOriginario? = null,
@@ -65,7 +62,6 @@ data class Ficha(
 )
 
 
-@Serializable
 data class PuntoPoligonal(
     val puntoReferencia: String = "",
     val utm: String = "",
@@ -73,7 +69,6 @@ data class PuntoPoligonal(
     val altura: String = ""
 )
 
-@Serializable
 data class Ritual(
     val tipo: TipoRitual? = null,
     val tipoOtro: String = "",
@@ -82,7 +77,6 @@ data class Ritual(
     val descripcion: String = ""
 )
 
-@Serializable
 data class ElementoEspacio(
     val tipo: TipoLugar? = null,
     val forma: String = "",
@@ -97,14 +91,12 @@ data class ElementoEspacio(
 )
 
 // "Realizadas: __ del archivo __ al __"
-@Serializable
 data class RegistroArchivos(
     val cantidad: String = "",
     val desde: String = "",
     val hasta: String = ""
 )
 
-@Serializable
 data class Participante(
     val cargo: String = "",
     val nombre: String = ""

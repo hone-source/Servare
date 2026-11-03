@@ -1,9 +1,9 @@
 package com.spiralsoft.servare.data.sync
 
+import android.database.sqlite.SQLiteException
 import androidx.room.withTransaction
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.Json
 import java.time.Clock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -12,13 +12,8 @@ import com.spiralsoft.servare.data.local.AppDatabase
 import com.spiralsoft.servare.data.local.dao.EliminacionDao
 import com.spiralsoft.servare.data.local.dao.OperacionConProblema
 import com.spiralsoft.servare.data.local.dao.OperationDao
-import com.spiralsoft.servare.data.local.dao.PruebaDao
 import com.spiralsoft.servare.data.local.dao.SyncInicialDao
 import com.spiralsoft.servare.data.local.entity.OperationEntity
-import com.spiralsoft.servare.data.local.entity.PruebaEntity
-import com.spiralsoft.servare.data.local.entity.SyncInicialEntity
-import com.spiralsoft.servare.data.remote.PruebaRemota
-import com.spiralsoft.servare.data.remote.PruebaRemoteDataSource
 import com.spiralsoft.servare.data.remote.ResultadoEnvio
 import com.spiralsoft.servare.data.remote.ResultadoPull
 import com.spiralsoft.servare.data.sesion.GestorSesion
@@ -44,14 +39,12 @@ sealed interface ResultadoCiclo {
 class SyncEngine @Inject constructor(
     private val database: AppDatabase,
     private val operationDao: OperationDao,
-    private val pruebaDao: PruebaDao,
     private val eliminacionDao: EliminacionDao,
     private val syncInicialDao: SyncInicialDao,
-    private val remoto: PruebaRemoteDataSource,
+    private val adaptadores: Adaptadores,
     private val monitor: ConnectivityMonitor,
     private val gestorSesion: GestorSesion,
     private val notificaciones: ServicioNotificacionEstado,
-    private val json: Json,
     private val clock: Clock
 ) {
     // Segunda barrera del single-flight: el ciclo normal y el de reintento usan colas de trabajo distintas
@@ -67,6 +60,8 @@ class SyncEngine @Inject constructor(
         // Sin sesión no se sincroniza: la cola queda como está hasta que el usuario inicie sesión
         // (al hacerlo, el gestor de sesión pide un ciclo)
         if (gestorSesion.estado.value !is EstadoSesion.ConSesion) return ResultadoCiclo.SesionExpirada
+
+        purgarTerminadas()
 
         if (!monitor.confirmarAlcanzabilidad()) return ResultadoCiclo.SinServidor
 
@@ -98,7 +93,7 @@ class SyncEngine @Inject constructor(
         // Push antes de pull: el servidor ya conoce los cambios locales cuando envía los suyos
         val descarga = descargar()
         val errorPull = when (val pull = descarga.pull) {
-            is ResultadoPull.Datos -> null
+            is ResultadoPull.Datos<*> -> null
             ResultadoPull.SesionExpirada -> return ResultadoCiclo.SesionExpirada
             ResultadoPull.SinServidor -> return ResultadoCiclo.SinServidor
             is ResultadoPull.Fallo -> pull.motivo
@@ -109,8 +104,17 @@ class SyncEngine @Inject constructor(
         // Mientras la descarga inicial no termine la lista está vacía sin explicación definitiva:
         // si falló sin ser por la red, no se espera a la siguiente acción del usuario
         val reintentoDescarga = ESPERA_DESCARGA_INICIAL_MS
-            .takeIf { errorPull != null && !syncInicialDao.estaCompletada(TipoEntidad.PRUEBA) }
+            .takeIf { errorPull != null && !descargaInicialCompletada() }
         ResultadoCiclo.Terminado(listOfNotNull(reintentoOperaciones, reintentoDescarga).minOrNull(), errorPull)
+    }
+
+    // Retención de la cola: es mantenimiento local, no depende del servidor.
+    // Si falla no impide sincronizar, se reintenta en el siguiente ciclo
+    private suspend fun purgarTerminadas() {
+        try {
+            operationDao.purgarTerminadasAntesDe(clock.millis() - RETENCION_MS)
+        } catch (_: SQLiteException) {
+        }
     }
 
     // Refresco manual del usuario: solo pull, sin enviar la cola.
@@ -121,64 +125,47 @@ class SyncEngine @Inject constructor(
         if (!monitor.confirmarAlcanzabilidad()) return ResultadoRefresco.SinServidor
         val descarga = descargar()
         when (descarga.pull) {
-            is ResultadoPull.Datos -> ResultadoRefresco.Actualizada(descarga.eliminadas)
+            is ResultadoPull.Datos<*> -> ResultadoRefresco.Actualizada(descarga.eliminadas)
             ResultadoPull.SesionExpirada -> ResultadoRefresco.SinSesion
             ResultadoPull.SinServidor -> ResultadoRefresco.SinServidor
             is ResultadoPull.Fallo -> ResultadoRefresco.ErrorDescarga
         }
     }
 
-    // eliminadas: títulos de los registros que se quitaron del dispositivo por estar borrados en el servidor
-    private class Descarga(val pull: ResultadoPull, val eliminadas: List<String> = emptyList())
-
-    // Descarga y aplica los registros del servidor.
+    // Descarga y aplica los registros del servidor, de cada tipo de entidad en orden.
     // Las consecuencias de perder la sesión o el servidor se aplican aquí,
     // quien llama solo decide cómo informarlas
     private suspend fun descargar(): Descarga {
-        return when (val pull = remoto.listar()) {
-            is ResultadoPull.Datos -> Descarga(pull, aplicarPull(pull.pruebas))
-            ResultadoPull.SesionExpirada -> Descarga(pull).also { gestorSesion.expirar() }
-            ResultadoPull.SinServidor -> Descarga(pull).also { monitor.reportarServidorNoAlcanzable() }
-            is ResultadoPull.Fallo -> Descarga(pull)
+        var primerFallo: ResultadoPull.Fallo? = null
+        val eliminadas = mutableListOf<String>()
+        for (adaptador in adaptadores.todos) {
+            val descarga = adaptador.descargar()
+            eliminadas += descarga.eliminadas
+            when (val pull = descarga.pull) {
+                // Sin sesión o sin servidor, los demás tipos tampoco tendrían respuesta
+                ResultadoPull.SesionExpirada -> {
+                    gestorSesion.expirar()
+                    return Descarga(pull, eliminadas)
+                }
+                ResultadoPull.SinServidor -> {
+                    monitor.reportarServidorNoAlcanzable()
+                    return Descarga(pull, eliminadas)
+                }
+                // Si una de las descargas falló se informa, aunque las otras sí se hayan aplicado
+                is ResultadoPull.Fallo -> if (primerFallo == null) primerFallo = pull
+                is ResultadoPull.Datos<*> -> Unit
+            }
         }
+        return Descarga(primerFallo ?: ResultadoPull.Datos(emptyList<Nothing>()), eliminadas)
     }
 
-    // Un registro con operaciones sin terminar no se sobrescribe. Leer qué está protegido y escribir
-    // van en la misma transacción: un guardado del usuario que llegue en medio no se pisa.
-    // Pendiente (el servidor aún no lo ofrece): versión y marcas de borrado, para el pull incremental,
-    // y detectar conflictos con versión distinta.
-    // El pull trae la lista completa, así que lo que el servidor ya conocía y deja de venir está borrado allí:
-    // se quita del dispositivo y se devuelven sus títulos para avisar al usuario.
-    // Pendiente (el servidor aún no lo ofrece): marcas de borrado, para el pull incremental
-    private suspend fun aplicarPull(remotas: List<PruebaRemota>): List<String> = database.withTransaction {
-        val protegidas = operationDao.entidadesConOperacionesSinTerminar(TipoEntidad.PRUEBA).toSet() +
-            eliminacionDao.entidadesEliminadas(TipoEntidad.PRUEBA)
-        for ((entityId, titulo, texto, numero, createdAt, version) in remotas) {
-            if (entityId in protegidas) continue
-            val local = pruebaDao.findById(entityId)
-            val nueva = PruebaEntity(
-                entityId = entityId,
-                titulo = titulo,
-                texto = texto,
-                numero = numero,
-                createdAt = createdAt,
-                // Sin versión del servidor se conserva la que ya se conocía
-                version = version ?: local?.version
-            )
-            if (nueva != local) pruebaDao.upsert(nueva)
-        }
-        val vigentes = remotas.mapTo(HashSet()) { it.entityId }
-        val eliminadas = pruebaDao.confirmadasPorElServidor()
-            .filter { it.entityId !in vigentes && it.entityId !in protegidas }
-        eliminadas.forEach { pruebaDao.deleteById(it.entityId) }
-        // Una lista vacía también es una descarga completa: el servidor no tiene registros
-        syncInicialDao.marcarCompletada(SyncInicialEntity(TipoEntidad.PRUEBA, clock.millis()))
-        eliminadas.map { it.titulo }
-    }
+    // Hasta que se descarguen todos los tipos la lista de alguno está vacía sin explicación definitiva
+    private suspend fun descargaInicialCompletada() =
+        TipoEntidad.entries.all { syncInicialDao.estaCompletada(it) }
 
     private suspend fun procesar(op: OperationEntity, conProblema: MutableList<OperacionConProblema>): Siguiente {
         operationDao.marcarProcesando(op.operationId, clock.millis())
-        when (val resultado = enviar(op)) {
+        when (val resultado = adaptadores[op.entityType].enviar(op)) {
             is ResultadoEnvio.Confirmada -> {
                 confirmar(op, resultado.version)
                 return Siguiente.CONFIRMADA
@@ -210,9 +197,8 @@ class SyncEngine @Inject constructor(
 
             is ResultadoEnvio.Conflicto -> {
                 // Se guarda el registro vigente del servidor: el usuario podrá compararlo con el suyo
-                val snapshot = resultado.actual?.let { json.encodeToString(PruebaRemota.serializer(), it) }
                 database.withTransaction {
-                    operationDao.marcarConflicto(op.operationId, resultado.motivo, resultado.causa, snapshot)
+                    operationDao.marcarConflicto(op.operationId, resultado.motivo, resultado.causa, resultado.actual)
                     bloquearDependientes(op)
                 }
                 conProblema += problema(op, EstadoOperacion.CONFLICTO, resultado.motivo, resultado.causa)
@@ -232,18 +218,6 @@ class SyncEngine @Inject constructor(
         return Siguiente.CONTINUAR
     }
 
-    // El contenido se lee de la tabla en el momento del envío: siempre va lo más reciente
-    private suspend fun enviar(op: OperationEntity): ResultadoEnvio = when (op.entityType) {
-        TipoEntidad.PRUEBA -> when (op.type) {
-            TipoOperacion.CREAR -> pruebaDao.findById(op.entityId)
-                ?.let { remoto.crear(op.operationId, it) } ?: registroAusente()
-            TipoOperacion.ACTUALIZAR -> pruebaDao.findById(op.entityId)
-                ?.let { remoto.actualizar(op.operationId, it, op.baseVersion) } ?: registroAusente()
-            TipoOperacion.ELIMINAR -> remoto.eliminar(op.operationId, op.entityId, op.baseVersion)
-            TipoOperacion.ADJUNTAR -> ResultadoEnvio.Definitivo("Los adjuntos aún no se pueden enviar")
-        }
-    }
-
     // Lo que el servicio de notificación necesita para nombrar el registro afectado
     private suspend fun problema(
         op: OperationEntity,
@@ -258,26 +232,19 @@ class SyncEngine @Inject constructor(
         entityId = op.entityId,
         lastError = motivo,
         conflictCause = causa,
-        titulo = when (op.entityType) {
-            TipoEntidad.PRUEBA -> pruebaDao.findById(op.entityId)?.titulo
-        }
+        titulo = adaptadores[op.entityType].titulo(op.entityId)
     )
-
-    private fun registroAusente() = ResultadoEnvio.Definitivo("El registro ya no está en el dispositivo")
 
     // Completada, nueva versión y encadenado del baseVersion de las siguientes, en una transacción
     private suspend fun confirmar(op: OperationEntity, version: Int?) = database.withTransaction {
-        operationDao.marcarCompletada(op.operationId)
-        when (op.entityType) {
-            TipoEntidad.PRUEBA ->
-                if (op.type == TipoOperacion.ELIMINAR) {
-                    // El servidor confirmó el borrado: ahora sí se elimina el registro
-                    pruebaDao.deleteById(op.entityId)
-                    eliminacionDao.delete(op.entityType, op.entityId)
-                } else if (version != null) {
-                    pruebaDao.actualizarVersion(op.entityId, version)
-                    operationDao.encadenarBaseVersion(op.entityType, op.entityId, op.createdAt, version)
-                }
+        operationDao.marcarCompletada(op.operationId, clock.millis())
+        if (op.type == TipoOperacion.ELIMINAR) {
+            // El servidor confirmó el borrado: ahora sí se elimina el registro
+            adaptadores[op.entityType].borrar(op.entityId)
+            eliminacionDao.delete(op.entityType, op.entityId)
+        } else if (version != null) {
+            adaptadores[op.entityType].actualizarVersion(op.entityId, version)
+            operationDao.encadenarBaseVersion(op.entityType, op.entityId, op.createdAt, version)
         }
     }
 
@@ -294,6 +261,7 @@ class SyncEngine @Inject constructor(
         const val ESPERA_BASE_MS = 10_000L
         const val ESPERA_MAX_MS = 5 * 60 * 60 * 1000L
         const val ESPERA_DESCARGA_INICIAL_MS = 60_000L
+        const val RETENCION_MS = 7 * 24 * 60 * 60 * 1000L // COMPLETADA y DESCARTADA, docs/2.2.md
 
         // min(5 h, 10 s × 2^(n−1))
         fun espera(intento: Int): Long =
