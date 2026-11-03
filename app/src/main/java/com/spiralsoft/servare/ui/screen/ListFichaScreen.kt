@@ -49,6 +49,7 @@ fun ListFichaScreen(
     onIniciarSesion: () -> Unit,
     mensaje: String?,
     onMensajeMostrado: () -> Unit,
+    onPruebas: (() -> Unit)? = null,
     viewModel: FichaListViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -76,7 +77,7 @@ fun ListFichaScreen(
                     title = { Text("Fichas") },
                     actions = {
                         IndicadorConectividad()
-                        MenuSesion()
+                        MenuSesion(onPruebas)
                     }
                 )
                 state.sesionExpirada?.let { TarjetaSesionExpirada(it, onIniciarSesion) }
@@ -124,14 +125,14 @@ fun ListFichaScreen(
                         )
                     }
                 }
-                state.fichas.isEmpty() -> ListaVacia(vacio)
+                state.registros.isEmpty() -> ListaVacia(vacio)
                 else -> LazyColumn(
                     modifier = modifier,
                     // Espacio inferior para que el botón "+" no tape la última ficha
                     contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.fichas, key = { it.entityId }) { ficha ->
+                    items(state.registros, key = { it.entityId }) { ficha ->
                         TarjetaFicha(
                             ficha,
                             onEditar = { onEditar(ficha.entityId) },
