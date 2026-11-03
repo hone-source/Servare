@@ -15,10 +15,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.spiralsoft.servare.BuildConfig
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.ui.screen.FormFichaScreen
+import com.spiralsoft.servare.ui.screen.FormPruebaScreen
 import com.spiralsoft.servare.ui.screen.InicioScreen
 import com.spiralsoft.servare.ui.screen.ListFichaScreen
+import com.spiralsoft.servare.ui.screen.ListPruebaScreen
 import com.spiralsoft.servare.ui.screen.LoginScreen
 import com.spiralsoft.servare.ui.screen.RegistroScreen
 import com.spiralsoft.servare.ui.viewModel.SesionViewModel
@@ -102,7 +105,10 @@ fun AppNavHost(
                 onEditar = { entityId -> navController.navigate(Screen.FichaForm.createRoute(entityId)) },
                 onIniciarSesion = { navController.navigate(Screen.Login.route) },
                 mensaje = mensaje,
-                onMensajeMostrado = { entry.savedStateHandle[MENSAJE] = null }
+                onMensajeMostrado = { entry.savedStateHandle[MENSAJE] = null },
+                onPruebas = if (BuildConfig.DEBUG) {
+                    { navController.navigate(Screen.PruebaList.route) }
+                } else null
             )
         }
         composable(
@@ -116,6 +122,35 @@ fun AppNavHost(
             FormFichaScreen(
                 onVolver = { navController.popBackStack() },
                 onGuardada = { mensaje ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set(MENSAJE, mensaje)
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Entidad de prueba, solo alcanzable desde el menú del build debug
+        composable(Screen.PruebaList.route) { entry ->
+            val mensaje by entry.savedStateHandle.getStateFlow<String?>(MENSAJE, null).collectAsState()
+            ListPruebaScreen(
+                onVolver = { navController.popBackStack() },
+                onNuevo = { navController.navigate(Screen.PruebaForm.createRoute()) },
+                onEditar = { entityId -> navController.navigate(Screen.PruebaForm.createRoute(entityId)) },
+                onIniciarSesion = { navController.navigate(Screen.Login.route) },
+                mensaje = mensaje,
+                onMensajeMostrado = { entry.savedStateHandle[MENSAJE] = null }
+            )
+        }
+        composable(
+            Screen.PruebaForm.route,
+            arguments = listOf(navArgument("entityId") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            })
+        ) {
+            FormPruebaScreen(
+                onVolver = { navController.popBackStack() },
+                onSalir = { mensaje ->
                     navController.previousBackStackEntry?.savedStateHandle?.set(MENSAJE, mensaje)
                     navController.popBackStack()
                 }
