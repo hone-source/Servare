@@ -5,7 +5,8 @@ import com.spiralsoft.servare.domain.model.EstadoOperacion
 import com.spiralsoft.servare.domain.model.TipoEntidad
 import com.spiralsoft.servare.domain.model.TipoOperacion
 
-// Operación FALLIDA, en CONFLICTO o BLOQUEADA, con el título del registro para poder nombrarlo al usuario
+// Operación FALLIDA, en CONFLICTO o BLOQUEADA,
+//con el título del registro para poder nombrarlo al usuario
 data class OperacionConProblema(
     val operationId: String,
     val type: TipoOperacion,
@@ -14,8 +15,6 @@ data class OperacionConProblema(
     val entityId: String,
     val lastError: String?,
     val titulo: String?, // null si el registro ya no está en el dispositivo
-    val texto: String? = null,
-    val numero: Int? = null,
     val conflictCause: CausaConflicto? = null,
     val serverSnapshot: String? = null,
     // Cambios posteriores del mismo registro que esperan a que se resuelva este (BLOQUEADA, o PENDIENTE
