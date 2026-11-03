@@ -1,7 +1,4 @@
-package com.spiralsoft.servare.notification
-
-import com.spiralsoft.servare.domain.model.CampoComparado
-import com.spiralsoft.servare.domain.model.Ficha
+package com.spiralsoft.servare.domain.model
 
 // Campos de la ficha con el nombre que ve el usuario, en el orden del formulario
 private val CAMPOS: List<Pair<String, (Ficha) -> String?>> = listOf(
