@@ -1,12 +1,14 @@
 package com.spiralsoft.servare.ui.viewModel
 
 import com.spiralsoft.servare.domain.model.AccionOperacion
+import com.spiralsoft.servare.domain.repository.ResultadoEliminacionFicha
+import com.spiralsoft.servare.domain.repository.ResultadoEliminacionPrueba
 import com.spiralsoft.servare.domain.repository.ResultadoRefresco
 import com.spiralsoft.servare.domain.repository.ResultadoResolucion
 import com.spiralsoft.servare.notification.ServicioNotificacionEstado
 
-// Lo que se le dice al usuario del resultado de resolver un cambio o de refrescar la lista.
-// Es igual en todas las listas
+// Lo que se le dice al usuario del resultado de resolver un cambio, de refrescar la lista o de eliminar.
+// Resolver y refrescar son iguales en todas las listas, eliminar nombra el tipo de registro
 
 internal fun ResultadoResolucion.mensaje(): String = when (this) {
     is ResultadoResolucion.Resuelta -> when (accion) {
@@ -27,4 +29,18 @@ internal fun ResultadoRefresco.mensaje(servicio: ServicioNotificacionEstado): St
     ResultadoRefresco.SinSesion -> "Inicia sesión para actualizar"
     ResultadoRefresco.SinServidor -> "No se pudo conectar con el servidor. Se actualizará al recuperar la conexión"
     ResultadoRefresco.ErrorDescarga -> "No se pudieron descargar los registros. Intenta de nuevo."
+}
+
+internal fun ResultadoEliminacionFicha.mensaje(): String = when (this) {
+    is ResultadoEliminacionFicha.Eliminada ->
+        "«${nombre.ifBlank { "Sin nombre" }}» se eliminó del dispositivo. Se eliminará del servidor al sincronizar"
+    ResultadoEliminacionFicha.NoEncontrada -> "Esta ficha ya no estaba en el dispositivo"
+    ResultadoEliminacionFicha.ErrorAlmacenamiento -> "No se pudo eliminar la ficha. Intenta de nuevo."
+}
+
+internal fun ResultadoEliminacionPrueba.mensaje(): String = when (this) {
+    is ResultadoEliminacionPrueba.Eliminada ->
+        "«$titulo» se eliminó del dispositivo. Se eliminará del servidor al sincronizar"
+    ResultadoEliminacionPrueba.NoEncontrada -> "Este registro ya no estaba en el dispositivo"
+    ResultadoEliminacionPrueba.ErrorAlmacenamiento -> "No se pudo eliminar el registro. Intenta de nuevo."
 }
