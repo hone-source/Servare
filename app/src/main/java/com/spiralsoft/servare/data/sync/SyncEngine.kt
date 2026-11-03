@@ -1,5 +1,6 @@
 package com.spiralsoft.servare.data.sync
 
+import android.database.sqlite.SQLiteException
 import androidx.room.withTransaction
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -74,6 +75,8 @@ class SyncEngine @Inject constructor(
         // (al hacerlo, el gestor de sesión pide un ciclo)
         if (gestorSesion.estado.value !is EstadoSesion.ConSesion) return ResultadoCiclo.SesionExpirada
 
+        purgarTerminadas()
+
         if (!monitor.confirmarAlcanzabilidad()) return ResultadoCiclo.SinServidor
 
         // Interrumpidas a mitad de envío: se reenvían con el mismo operationId
@@ -117,6 +120,15 @@ class SyncEngine @Inject constructor(
         val reintentoDescarga = ESPERA_DESCARGA_INICIAL_MS
             .takeIf { errorPull != null && !descargaInicialCompletada() }
         ResultadoCiclo.Terminado(listOfNotNull(reintentoOperaciones, reintentoDescarga).minOrNull(), errorPull)
+    }
+
+    // Retención de la cola: es mantenimiento local, no depende del servidor.
+    // Si falla no impide sincronizar, se reintenta en el siguiente ciclo
+    private suspend fun purgarTerminadas() {
+        try {
+            operationDao.purgarTerminadasAntesDe(clock.millis() - RETENCION_MS)
+        } catch (_: SQLiteException) {
+        }
     }
 
     // Refresco manual del usuario: solo pull, sin enviar la cola.
@@ -326,7 +338,7 @@ class SyncEngine @Inject constructor(
 
     // Completada, nueva versión y encadenado del baseVersion de las siguientes, en una transacción
     private suspend fun confirmar(op: OperationEntity, version: Int?) = database.withTransaction {
-        operationDao.marcarCompletada(op.operationId)
+        operationDao.marcarCompletada(op.operationId, clock.millis())
         if (op.type == TipoOperacion.ELIMINAR) {
             // El servidor confirmó el borrado: ahora sí se elimina el registro
             when (op.entityType) {
@@ -356,6 +368,7 @@ class SyncEngine @Inject constructor(
         const val ESPERA_BASE_MS = 10_000L
         const val ESPERA_MAX_MS = 5 * 60 * 60 * 1000L
         const val ESPERA_DESCARGA_INICIAL_MS = 60_000L
+        const val RETENCION_MS = 7 * 24 * 60 * 60 * 1000L // COMPLETADA y DESCARTADA, docs/2.2.md
 
         // min(5 h, 10 s × 2^(n−1))
         fun espera(intento: Int): Long =
