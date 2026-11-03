@@ -68,8 +68,14 @@ interface OperationDao {
     @Query("UPDATE operaciones SET status = 'PROCESANDO', lastAttemptAt = :ahora WHERE operationId = :operationId")
     suspend fun marcarProcesando(operationId: String, ahora: Long)
 
-    @Query("UPDATE operaciones SET status = 'COMPLETADA', uncertain = 0, lastError = NULL WHERE operationId = :operationId")
-    suspend fun marcarCompletada(operationId: String)
+    @Query(
+        """
+        UPDATE operaciones
+        SET status = 'COMPLETADA', uncertain = 0, lastError = NULL, finishedAt = :ahora
+        WHERE operationId = :operationId
+        """
+    )
+    suspend fun marcarCompletada(operationId: String, ahora: Long)
 
     // Sin respuesta o conexión perdida: vuelve a la cola sin sumar intento
     @Query("UPDATE operaciones SET status = 'PENDIENTE', uncertain = 1 WHERE operationId = :operationId")
@@ -164,11 +170,11 @@ interface OperationDao {
     // El usuario abandona su cambio
     @Query(
         """
-        UPDATE operaciones SET status = 'DESCARTADA', nextAttemptAt = NULL
+        UPDATE operaciones SET status = 'DESCARTADA', nextAttemptAt = NULL, finishedAt = :ahora
         WHERE operationId = :operationId AND status IN ('FALLIDA', 'CONFLICTO')
         """
     )
-    suspend fun descartar(operationId: String): Int
+    suspend fun descartar(operationId: String, ahora: Long): Int
 
     // Las BLOQUEADAS por esta operación vuelven a la cola al resolverla...
     @Query(
@@ -185,13 +191,29 @@ interface OperationDao {
     // creó después sobre el mismo registro: sin esto, enviarían un contenido que ya no corresponde
     @Query(
         """
-        UPDATE operaciones SET status = 'DESCARTADA'
+        UPDATE operaciones SET status = 'DESCARTADA', finishedAt = :ahora
         WHERE status IN ('BLOQUEADA', 'PENDIENTE', 'REINTENTABLE') AND operationId != :operationId
         AND ((entityType = :entityType AND entityId = :entityId AND createdAt > :createdAt)
              OR dependsOn = :operationId)
         """
     )
-    suspend fun descartarPosteriores(operationId: String, entityType: TipoEntidad, entityId: String, createdAt: Long)
+    suspend fun descartarPosteriores(
+        operationId: String, entityType: TipoEntidad, entityId: String, createdAt: Long, ahora: Long
+    )
+
+    // COMPLETADA y DESCARTADA se purgan pasado el plazo: FALLIDA, CONFLICTO y BLOQUEADA no
+    // Una COMPLETADA de la que aún depende una operación viva se conserva: siguienteElegible necesita verla
+    @Query(
+        """
+        DELETE FROM operaciones
+        WHERE status IN ('COMPLETADA', 'DESCARTADA') AND finishedAt < :limite
+        AND operationId NOT IN (
+            SELECT dependsOn FROM operaciones
+            WHERE dependsOn IS NOT NULL AND status NOT IN ('COMPLETADA', 'DESCARTADA')
+        )
+        """
+    )
+    suspend fun purgarTerminadasAntesDe(limite: Long): Int
 
     // Protección del pull: registros con operaciones sin terminar (incluidas FALLIDA, CONFLICTO y BLOQUEADA,
     // que se conservan hasta que el usuario decida) no se sobrescriben con datos del servidor
