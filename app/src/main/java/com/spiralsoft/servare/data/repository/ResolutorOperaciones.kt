@@ -3,7 +3,7 @@ package com.spiralsoft.servare.data.repository
 import android.database.sqlite.SQLiteException
 import androidx.room.withTransaction
 import kotlinx.serialization.json.Json
-import java.util.UUID
+import java.time.Clock
 import javax.inject.Inject
 import com.spiralsoft.servare.data.local.AppDatabase
 import com.spiralsoft.servare.data.local.dao.EliminacionDao
@@ -29,11 +29,13 @@ import com.spiralsoft.servare.domain.repository.ResultadoResolucion
 class ResolutorOperaciones @Inject constructor(
     private val database: AppDatabase,
     private val operationDao: OperationDao,
+    private val encolador: EncoladorOperaciones,
     private val eliminacionDao: EliminacionDao,
     private val pruebaDao: PruebaDao,
     private val fichaDao: FichaDao,
     private val syncScheduler: SyncScheduler,
-    private val json: Json
+    private val json: Json,
+    private val clock: Clock
 ) {
     suspend fun resolver(operationId: String, accion: AccionOperacion): ResultadoResolucion = try {
         // Cada acción es una sola transacción: el estado se comprueba dentro, así que el motor no se cruza
@@ -51,6 +53,7 @@ class ResolutorOperaciones @Inject constructor(
         val op = operationDao.buscar(operationId) ?: return false
         val porVersion = op.status == EstadoOperacion.CONFLICTO && op.conflictCause != CausaConflicto.INEXISTENTE_EN_SERVIDOR
         val servidor = leerServidor(op)
+        val ahora = clock.millis()
 
         when (accion) {
             AccionOperacion.REINTENTAR -> {
@@ -64,18 +67,9 @@ class ResolutorOperaciones @Inject constructor(
                 if (op.status != EstadoOperacion.CONFLICTO || op.conflictCause != CausaConflicto.INEXISTENTE_EN_SERVIDOR ||
                     op.type != TipoOperacion.ACTUALIZAR || !existeLocal(op)
                 ) return false
-                if (operationDao.descartar(op.operationId) == 0) return false
+                if (operationDao.descartar(op.operationId, ahora) == 0) return false
                 limpiarVersion(op)
-                operationDao.insert(
-                    OperationEntity(
-                        operationId = UUID.randomUUID().toString(),
-                        type = TipoOperacion.CREAR,
-                        entityType = op.entityType,
-                        entityId = op.entityId,
-                        createdAt = op.createdAt,
-                        status = EstadoOperacion.PENDIENTE
-                    )
-                )
+                encolador.encolar(TipoOperacion.CREAR, op.entityType, op.entityId, createdAt = op.createdAt)
                 liberarBloqueadas(op)
             }
 
@@ -93,15 +87,15 @@ class ResolutorOperaciones @Inject constructor(
             // La versión del servidor reemplaza a la local, que se abandona junto con lo que dependía de ella
             AccionOperacion.ACEPTAR_SERVIDOR -> {
                 if (!porVersion || servidor == null) return false
-                if (operationDao.descartar(op.operationId) == 0) return false
-                descartarPosteriores(op)
+                if (operationDao.descartar(op.operationId, ahora) == 0) return false
+                descartarPosteriores(op, ahora)
                 servidor.aplicar()
                 eliminacionDao.delete(op.entityType, op.entityId) // si había un borrado, el registro vuelve
             }
 
             AccionOperacion.DESCARTAR -> {
-                if (operationDao.descartar(op.operationId) == 0) return false
-                descartarPosteriores(op)
+                if (operationDao.descartar(op.operationId, ahora) == 0) return false
+                descartarPosteriores(op, ahora)
                 val desaparece = op.type == TipoOperacion.CREAR ||
                     op.conflictCause == CausaConflicto.INEXISTENTE_EN_SERVIDOR
                 if (desaparece) {
@@ -170,6 +164,6 @@ class ResolutorOperaciones @Inject constructor(
     private suspend fun liberarBloqueadas(op: OperationEntity) =
         operationDao.liberarBloqueadas(op.operationId, op.entityType, op.entityId, op.createdAt)
 
-    private suspend fun descartarPosteriores(op: OperationEntity) =
-        operationDao.descartarPosteriores(op.operationId, op.entityType, op.entityId, op.createdAt)
+    private suspend fun descartarPosteriores(op: OperationEntity, ahora: Long) =
+        operationDao.descartarPosteriores(op.operationId, op.entityType, op.entityId, op.createdAt, ahora)
 }
