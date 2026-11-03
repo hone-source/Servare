@@ -9,6 +9,18 @@ import com.spiralsoft.servare.domain.model.TipoEntidad
 // Totalidad de lo que el motor, el resolutor de operaciones y los avisos necesitan saber de un tipo de registro:
 // su tabla, su recurso remoto y cómo se compara con el del servidor. Agregar un tipo de registro es
 // escribir un adaptador y registrarlo en SyncModule, sin tocar a quienes lo usan
+//
+// Piezas de un tipo de registro nuevo (el molde completo es PRUEBA, FICHA es el caso con tablas hijas):
+//  1. domain/model/TipoEntidad: el valor nuevo. Adaptadores falla al arrancar si falta su adaptador
+//  2. data/local: entidad (con version: Int?), DAO (findById, findActivaById, confirmadasPorElServidor,
+//     actualizarVersion, limpiarVersion, deleteById, upsert) y registro en AppDatabase y DatabaseModule
+//  3. data/remote: Api (GET lista, POST/PUT/DELETE con Idempotency-Key), DTO y RemoteDataSource con
+//     TraductorRespuestas. En NetworkModule, un provider de la Api con AuthInterceptor
+//  4. data/sync: un adaptador que extienda AdaptadorBase y su @Binds @IntoMap en di/SyncModule
+//  5. data/repository: repositorio sobre EscrituraOutbox (crear, actualizar, eliminar) y su @Binds en RepositoryModule,
+//     la interfaz de domain/repository extiende RepositorioSincronizable
+//  6. ui: ViewModel de lista sobre ListaSincronizableViewModel, su formulario, pantallas y rutas en navigation
+// El motor, el resolutor, los avisos de problemas y la consulta de la cola no se tocan
 interface AdaptadorEntidad {
     val tipo: TipoEntidad
 
