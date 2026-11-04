@@ -180,13 +180,13 @@ class SyncEngine @Inject constructor(
 
             is ResultadoEnvio.Temporal -> {
                 val intentos = op.attemptCount + 1
-                if (intentos >= MAX_INTENTOS) {
-                    val motivo = "${resultado.motivo}. Se agotaron los $MAX_INTENTOS intentos"
+                if (intentos >= PoliticaReintentos.MAX_INTENTOS) {
+                    val motivo = "${resultado.motivo}. Se agotaron los ${PoliticaReintentos.MAX_INTENTOS} intentos"
                     fallar(op, intentos, motivo)
                     conProblema += problema(op, EstadoOperacion.FALLIDA, motivo)
                 } else {
                     operationDao.marcarReintentable(
-                        op.operationId, intentos, clock.millis() + espera(intentos), resultado.motivo
+                        op.operationId, intentos, clock.millis() + PoliticaReintentos.espera(intentos), resultado.motivo
                     )
                 }
                 if (resultado.sinRespuesta) {
@@ -257,14 +257,7 @@ class SyncEngine @Inject constructor(
         operationDao.bloquearDependientes(op.operationId, op.entityType, op.entityId, op.createdAt)
 
     private companion object {
-        const val MAX_INTENTOS = 5
-        const val ESPERA_BASE_MS = 10_000L
-        const val ESPERA_MAX_MS = 5 * 60 * 60 * 1000L
         const val ESPERA_DESCARGA_INICIAL_MS = 60_000L
         const val RETENCION_MS = 7 * 24 * 60 * 60 * 1000L // COMPLETADA y DESCARTADA, docs/2.2.md
-
-        // min(5 h, 10 s × 2^(n−1))
-        fun espera(intento: Int): Long =
-            (ESPERA_BASE_MS shl (intento - 1).coerceAtMost(20)).coerceAtMost(ESPERA_MAX_MS)
     }
 }
