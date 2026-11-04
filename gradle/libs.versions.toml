@@ -20,6 +20,7 @@ hilt = "2.60.1"
 androidxHilt = "1.4.0"
 navigationCompose = "2.10.2"
 kotlinxSerialization = "1.12.0"
+coroutines = "1.11.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -75,6 +76,9 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 
 # Kotlinx Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
+# Pruebas unitarias
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
