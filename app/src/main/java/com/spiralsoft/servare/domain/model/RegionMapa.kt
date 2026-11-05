@@ -14,12 +14,21 @@ data class RegionMapa(
     val centroLat get() = (norte + sur) / 2
     val centroLon get() = (este + oeste) / 2
 
+    fun contiene(latitud: Double, longitud: Double) =
+        latitud in sur..norte && longitud in oeste..este
+
     companion object {
         // Caja aproximada de el país, el mapa no se deja mover fuera de ella
         val MEXICO = RegionMapa("México", norte = 32.8, este = -86.5, sur = 14.4, oeste = -118.5, zoomMin = 4.0, zoomMax = 14.0)
 
         // Estado pequeño, para probar la descarga sin bajar miles de teselas
         val TLAXCALA = RegionMapa("Tlaxcala", norte = 19.73, este = -97.63, sur = 19.10, oeste = -98.72, zoomMin = 5.0, zoomMax = 13.0)
+
+        // Es unas 20 veces más grande que Tlaxcala: con un zoom menos pesa una cuarta parte de lo que pesaría
+        val ZACATECAS = RegionMapa("Zacatecas", norte = 25.13, este = -100.71, sur = 21.03, oeste = -104.36, zoomMin = 5.0, zoomMax = 13.0)
+
+        // Los estados que se pueden descargar. El nombre es la identidad de la región guardada: no cambiarlo
+        val ESTADOS = listOf(TLAXCALA, ZACATECAS)
     }
 }
 
