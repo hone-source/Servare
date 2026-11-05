@@ -22,7 +22,7 @@ class MapaViewModel @Inject constructor(
     private val gestor: GestorMapaOffline
 ) : ViewModel() {
 
-    val region = RegionMapa.TLAXCALA
+    val region = RegionMapa.ZACATECAS
 
     private val _state = MutableStateFlow(MapaState())
     val state: StateFlow<MapaState> = _state.asStateFlow()
