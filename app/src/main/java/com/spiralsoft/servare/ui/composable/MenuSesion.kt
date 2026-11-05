@@ -36,6 +36,8 @@ import com.spiralsoft.servare.ui.viewModel.CierreSesionViewModel
 fun MenuSesion(
     // Acceso a la entidad de prueba, solo en el build debug (null: no se ofrece)
     onPruebas: (() -> Unit)? = null,
+    // Acceso a la pantalla de mapa de prueba, solo en el build debug (null: no se ofrece)
+    onMapa: (() -> Unit)? = null,
     viewModel: CierreSesionViewModel = hiltViewModel()
 ) {
     val correo by viewModel.correo.collectAsState()
@@ -60,6 +62,15 @@ fun MenuSesion(
                     onClick = {
                         abierto = false
                         onPruebas()
+                    }
+                )
+            }
+            if (BuildConfig.DEBUG && onMapa != null) {
+                DropdownMenuItem(
+                    text = { Text("Mapa (debug)") },
+                    onClick = {
+                        abierto = false
+                        onMapa()
                     }
                 )
             }
