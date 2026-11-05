@@ -10,8 +10,8 @@ class PoliticaReintentosTest {
     private val cincoHoras = 5 * 60 * 60 * segundo
 
     @Test
-    fun el_maximo_son_cinco_intentos() {
-        assertEquals(5, PoliticaReintentos.MAX_INTENTOS)
+    fun el_maximo_son_trece_intentos() {
+        assertEquals(13, PoliticaReintentos.MAX_INTENTOS)
     }
 
     @Test
@@ -23,10 +23,10 @@ class PoliticaReintentosTest {
 
     @Test
     fun la_espera_nunca_pasa_de_cinco_horas() {
-        // 10 s × 2^10 = 10 240 s todavía cabe; 10 s × 2^11 = 20 480 s ya no
-        assertEquals(10_240 * segundo, PoliticaReintentos.espera(11))
-        assertEquals(cincoHoras, PoliticaReintentos.espera(12))
-        assertEquals(cincoHoras, PoliticaReintentos.espera(13))
+        // 10 s × 2^10 = 10 240 s todavía cabe
+        assertEquals(PoliticaReintentos.espera(11), 10_240 * segundo)
+        assertEquals(PoliticaReintentos.espera(12), cincoHoras)
+        assertEquals(PoliticaReintentos.espera(13), cincoHoras)
     }
 
     @Test
