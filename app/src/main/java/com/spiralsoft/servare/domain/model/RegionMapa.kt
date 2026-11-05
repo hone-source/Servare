@@ -14,9 +14,6 @@ data class RegionMapa(
     val centroLat get() = (norte + sur) / 2
     val centroLon get() = (este + oeste) / 2
 
-    fun contiene(latitud: Double, longitud: Double) =
-        latitud in sur..norte && longitud in oeste..este
-
     companion object {
         // Caja aproximada de el país, el mapa no se deja mover fuera de ella
         val MEXICO = RegionMapa("México", norte = 32.8, este = -86.5, sur = 14.4, oeste = -118.5, zoomMin = 4.0, zoomMax = 14.0)
