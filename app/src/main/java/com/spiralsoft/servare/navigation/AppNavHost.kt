@@ -23,6 +23,7 @@ import com.spiralsoft.servare.ui.screen.InicioScreen
 import com.spiralsoft.servare.ui.screen.ListFichaScreen
 import com.spiralsoft.servare.ui.screen.ListPruebaScreen
 import com.spiralsoft.servare.ui.screen.LoginScreen
+import com.spiralsoft.servare.ui.screen.MapaScreen
 import com.spiralsoft.servare.ui.screen.RegistroScreen
 import com.spiralsoft.servare.ui.viewModel.SesionViewModel
 
@@ -108,6 +109,9 @@ fun AppNavHost(
                 onMensajeMostrado = { entry.savedStateHandle[MENSAJE] = null },
                 onPruebas = if (BuildConfig.DEBUG) {
                     { navController.navigate(Screen.PruebaList.route) }
+                } else null,
+                onMapa = if (BuildConfig.DEBUG) {
+                    { navController.navigate(Screen.Mapa.route) }
                 } else null
             )
         }
@@ -126,6 +130,11 @@ fun AppNavHost(
                     navController.popBackStack()
                 }
             )
+        }
+
+        // Mapa de prueba, solo alcanzable desde el menú del build debug
+        composable(Screen.Mapa.route) {
+            MapaScreen(onVolver = { navController.popBackStack() })
         }
 
         // Entidad de prueba, solo alcanzable desde el menú del build debug
