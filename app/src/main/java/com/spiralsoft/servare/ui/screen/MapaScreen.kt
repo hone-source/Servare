@@ -1,37 +1,139 @@
 package com.spiralsoft.servare.ui.screen
 
+import android.annotation.SuppressLint
 import android.content.Context
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocationDisabled
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.modes.CameraMode
+import org.maplibre.android.location.modes.RenderMode
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+import kotlinx.coroutines.launch
+import com.spiralsoft.servare.data.mapa.GestorMapaOffline
+import com.spiralsoft.servare.domain.model.EstadoRegionMapa
+import com.spiralsoft.servare.domain.model.RegionMapa
+import com.spiralsoft.servare.ui.composable.EstadoPermisoUbicacion
+import com.spiralsoft.servare.ui.composable.rememberPermisoUbicacion
+import com.spiralsoft.servare.ui.viewModel.MapaViewModel
 
-// Estilo público de MapLibre, sin clave. Necesita red: el mapa offline se prueba después
-private const val ESTILO = "https://demotiles.maplibre.org/style.json"
-
-// Pantalla de prueba del mapa, solo en el build debug
+// Pantalla de prueba del mapa, solo en el build debug.
+// El mapa ocupa toda la pantalla: la descarga está en el menú de la barra y el centrado en un botón flotante
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MapaScreen(onVolver: () -> Unit) {
+fun MapaScreen(
+    onVolver: () -> Unit,
+    viewModel: MapaViewModel = hiltViewModel()
+) {
+    val context = LocalContext.current
+    val state by viewModel.state.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val permiso = rememberPermisoUbicacion()
+    var mapa by remember { mutableStateOf<MapaListo?>(null) }
+
+    // La primera vez que se abre el mapa se pide el permiso, después solo se pide con el botón
+    var pedido by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!pedido && permiso.estado == EstadoPermisoUbicacion.SIN_PEDIR) permiso.solicitar()
+        pedido = true
+    }
+
+    LaunchedEffect(mapa, permiso.concedido) {
+        mapa?.let { actualizarUbicacion(context, it, permiso.concedido) }
+    }
+
+    // Sin el permiso no hay posición: el aviso explica por qué y ofrece la acción que corresponde
+    LaunchedEffect(permiso.estado) {
+        when (permiso.estado) {
+            EstadoPermisoUbicacion.DENEGADO -> {
+                val resultado = snackbar.showSnackbar(
+                    "Sin el permiso de ubicación no se puede mostrar tu posición.",
+                    actionLabel = "Permitir", duration = SnackbarDuration.Long
+                )
+                if (resultado == SnackbarResult.ActionPerformed) permiso.solicitar()
+            }
+            EstadoPermisoUbicacion.BLOQUEADO -> {
+                val resultado = snackbar.showSnackbar(
+                    "El permiso de ubicación está bloqueado. Actívalo en los ajustes de la app.",
+                    actionLabel = "Ajustes", duration = SnackbarDuration.Long
+                )
+                if (resultado == SnackbarResult.ActionPerformed) permiso.abrirAjustes()
+            }
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(state.mensaje) {
+        state.mensaje?.let {
+            snackbar.showSnackbar(it)
+            viewModel.mensajeMostrado()
+        }
+    }
+
+    val centrar = {
+        val posicion = mapa?.map?.locationComponent?.takeIf { it.isLocationComponentActivated }?.lastKnownLocation
+        if (posicion != null) {
+            mapa?.map?.animateCamera(
+                CameraUpdateFactory.newLatLngZoom(LatLng(posicion.latitude, posicion.longitude), 14.0)
+            )
+        } else {
+            scope.launch {
+                snackbar.showSnackbar(
+                    "Aún no se obtiene tu posición. Comprueba que la ubicación del dispositivo esté activada."
+                )
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -40,33 +142,126 @@ fun MapaScreen(onVolver: () -> Unit) {
                     IconButton(onClick = onVolver) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
+                },
+                actions = {
+                    MenuDescarga(viewModel.region, state.region, viewModel::descargar, viewModel::eliminar)
                 }
             )
-        }
+        },
+        floatingActionButton = {
+            SmallFloatingActionButton(
+                onClick = {
+                    when (permiso.estado) {
+                        EstadoPermisoUbicacion.CONCEDIDO -> centrar()
+                        EstadoPermisoUbicacion.BLOQUEADO -> permiso.abrirAjustes()
+                        else -> permiso.solicitar()
+                    }
+                }
+            ) {
+                Icon(
+                    if (permiso.concedido) Icons.Default.MyLocation else Icons.Default.LocationDisabled,
+                    contentDescription = "Centrar en mi posición"
+                )
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
-        MapaMapLibre(Modifier.fillMaxSize().padding(padding))
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            MapaMapLibre(viewModel.region, { mapa = it }, Modifier.fillMaxSize())
+            (state.region as? EstadoRegionMapa.Descargando)?.let { descarga ->
+                if (descarga.requeridos > 0) {
+                    LinearProgressIndicator(
+                        progress = { descarga.completados.toFloat() / descarga.requeridos },
+                        modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
+                    )
+                } else {
+                    LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
+                }
+            }
+        }
+    }
+}
+
+// Descarga del mapa sin conexión: el estado va como encabezado y las acciones dependen de él
+@Composable
+private fun MenuDescarga(
+    region: RegionMapa,
+    estado: EstadoRegionMapa,
+    onDescargar: () -> Unit,
+    onEliminar: () -> Unit
+) {
+    var abierto by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { abierto = true }) {
+            Icon(
+                if (estado is EstadoRegionMapa.Completa) Icons.Outlined.CloudDone else Icons.Outlined.CloudDownload,
+                contentDescription = "Mapa sin conexión"
+            )
+        }
+        DropdownMenu(expanded = abierto, onDismissRequest = { abierto = false }) {
+            DropdownMenuItem(
+                text = {
+                    Column {
+                        Text(region.nombre, style = MaterialTheme.typography.labelMedium)
+                        Text(descripcion(estado), style = MaterialTheme.typography.bodySmall)
+                    }
+                },
+                onClick = {},
+                enabled = false
+            )
+            val cerrarY = { accion: () -> Unit -> { abierto = false; accion() } }
+            when (estado) {
+                EstadoRegionMapa.NoDescargada -> ItemMenu("Descargar", cerrarY(onDescargar))
+                is EstadoRegionMapa.Parcial -> {
+                    ItemMenu("Continuar descarga", cerrarY(onDescargar))
+                    ItemMenu("Quitar", cerrarY(onEliminar))
+                }
+                is EstadoRegionMapa.Completa -> ItemMenu("Quitar", cerrarY(onEliminar))
+                is EstadoRegionMapa.Descargando -> ItemMenu("Cancelar descarga", cerrarY(onEliminar))
+                EstadoRegionMapa.Comprobando -> Unit
+            }
+        }
     }
 }
 
 @Composable
-private fun MapaMapLibre(modifier: Modifier = Modifier) {
+private fun ItemMenu(texto: String, onClick: () -> Unit) {
+    DropdownMenuItem(text = { Text(texto) }, onClick = onClick)
+}
+
+private fun descripcion(estado: EstadoRegionMapa): String = when (estado) {
+    EstadoRegionMapa.Comprobando -> "Comprobando lo guardado…"
+    EstadoRegionMapa.NoDescargada -> "No está guardado en este dispositivo."
+    is EstadoRegionMapa.Parcial -> "Descarga incompleta (${estado.completados} de ${estado.requeridos})."
+    is EstadoRegionMapa.Descargando ->
+        if (estado.requeridos > 0) "Descargando… ${estado.completados} de ${estado.requeridos}" else "Preparando la descarga…"
+    is EstadoRegionMapa.Completa -> "Guardado en este dispositivo (${estado.bytes / 1_048_576} MB)."
+}
+
+@Composable
+private fun MapaMapLibre(region: RegionMapa, onListo: (MapaListo) -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val mapView = rememberMapView(context)
+    val mapView = rememberMapView(context, region, onListo)
 
     AndroidView(factory = { mapView }, modifier = modifier)
 }
 
 // El MapView no sigue el ciclo de vida solo: hay que reenviarle los eventos de la pantalla
 @Composable
-private fun rememberMapView(context: Context): MapView {
+private fun rememberMapView(context: Context, region: RegionMapa, onListo: (MapaListo) -> Unit): MapView {
     val mapView = remember {
         MapLibre.getInstance(context)
         MapView(context).apply {
             getMapAsync { map ->
-                map.setStyle(ESTILO)
+                map.setStyle(GestorMapaOffline.ESTILO) { estilo -> onListo(MapaListo(map, estilo)) }
+                // El sistema solo opera en México: el mapa no se aleja ni se mueve fuera del país
+                val mexico = RegionMapa.MEXICO
+                map.setLatLngBoundsForCameraTarget(LatLngBounds.from(mexico.norte, mexico.este, mexico.sur, mexico.oeste))
+                map.setMinZoomPreference(mexico.zoomMin)
                 map.cameraPosition = CameraPosition.Builder()
-                    .target(LatLng(22.76941204234346, -102.57653555131166))
-                    .zoom(4.0)
+                    .target(LatLng(region.centroLat, region.centroLon))
+                    .zoom(9.0)
                     .build()
             }
         }
@@ -99,4 +294,26 @@ private fun rememberMapView(context: Context): MapView {
         }
     }
     return mapView
+}
+
+// El mapa con el estilo ya cargado: la capa de ubicación necesita las dos cosas
+private class MapaListo(val map: MapLibreMap, val estilo: Style)
+
+// La posición del dispositivo se dibuja con la capa de ubicación de MapLibre. Se activa al conceder el
+// permiso y se apaga si se revoca, el motor por defecto usa el GPS del sistema
+@SuppressLint("MissingPermission")
+private fun actualizarUbicacion(context: Context, mapa: MapaListo, permitido: Boolean) {
+    val capa = mapa.map.locationComponent
+    if (!permitido) {
+        if (capa.isLocationComponentActivated) capa.isLocationComponentEnabled = false
+        return
+    }
+    if (!capa.isLocationComponentActivated) {
+        capa.activateLocationComponent(
+            LocationComponentActivationOptions.builder(context, mapa.estilo).useDefaultLocationEngine(true).build()
+        )
+    }
+    capa.isLocationComponentEnabled = true
+    capa.cameraMode = CameraMode.NONE
+    capa.renderMode = RenderMode.COMPASS
 }
