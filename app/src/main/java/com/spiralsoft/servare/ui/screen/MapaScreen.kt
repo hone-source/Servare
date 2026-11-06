@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationDisabled
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
@@ -27,6 +30,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -40,7 +44,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -57,9 +66,18 @@ import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Point
 import kotlinx.coroutines.launch
 import com.spiralsoft.servare.data.mapa.GestorMapaOffline
 import com.spiralsoft.servare.domain.model.EstadoRegionMapa
+import com.spiralsoft.servare.domain.model.Punto
 import com.spiralsoft.servare.domain.model.RegionMapa
 import com.spiralsoft.servare.ui.composable.EstadoPermisoUbicacion
 import com.spiralsoft.servare.ui.composable.rememberPermisoUbicacion
@@ -110,6 +128,34 @@ fun MapaScreen(
             }
             else -> Unit
         }
+    }
+
+    // Mantener pulsado un punto del mapa abre el diálogo para nombrarlo y guardarlo
+    DisposableEffect(mapa) {
+        val map = mapa?.map
+        val oyente = MapLibreMap.OnMapLongClickListener { lugar ->
+            viewModel.proponerPunto(lugar.latitude, lugar.longitude)
+            true
+        }
+        map?.addOnMapLongClickListener(oyente)
+        onDispose { map?.removeOnMapLongClickListener(oyente) }
+    }
+
+    // Los puntos guardados se dibujan en una capa propia sobre el estilo
+    LaunchedEffect(mapa) {
+        mapa?.let { prepararPuntos(it.estilo) }
+    }
+    LaunchedEffect(mapa, state.puntos) {
+        mapa?.let { mostrarPuntos(it.estilo, state.puntos) }
+    }
+
+    state.puntoNuevo?.let { punto ->
+        DialogoNuevoPunto(
+            latitud = punto.latitud,
+            longitud = punto.longitud,
+            onGuardar = viewModel::guardarPunto,
+            onCancelar = viewModel::cancelarPunto
+        )
     }
 
     LaunchedEffect(state.mensaje) {
@@ -180,6 +226,42 @@ fun MapaScreen(
             }
         }
     }
+}
+
+// Pide el nombre del lugar mantenido pulsado. Sin nombre no se puede guardar
+@Composable
+private fun DialogoNuevoPunto(
+    latitud: Double,
+    longitud: Double,
+    onGuardar: (String) -> Unit,
+    onCancelar: () -> Unit
+) {
+    var nombre by rememberSaveable { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text("Guardar punto") },
+        text = {
+            Column {
+                Text("%.5f, %.5f".format(latitud, longitud), style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nombre") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onGuardar(nombre) }, enabled = nombre.isNotBlank()) { Text("Guardar") }
+        },
+        dismissButton = { TextButton(onClick = onCancelar) { Text("Cancelar") } }
+    )
 }
 
 // Descarga del mapa sin conexión: el estado va como encabezado y las acciones dependen de él
@@ -316,4 +398,48 @@ private fun actualizarUbicacion(context: Context, mapa: MapaListo, permitido: Bo
     capa.isLocationComponentEnabled = true
     capa.cameraMode = CameraMode.NONE
     capa.renderMode = RenderMode.COMPASS
+}
+
+private const val FUENTE_PUNTOS = "puntos"
+private const val CAPA_PUNTOS = "puntos-circulo"
+private const val CAPA_NOMBRES = "puntos-nombre"
+private const val PROPIEDAD_NOMBRE = "nombre"
+
+// Fuente y capas de los puntos guardados, una sola vez por estilo
+private fun prepararPuntos(estilo: Style) {
+    if (estilo.getSource(FUENTE_PUNTOS) != null) return
+    estilo.addSource(GeoJsonSource(FUENTE_PUNTOS))
+    estilo.addLayer(
+        CircleLayer(CAPA_PUNTOS, FUENTE_PUNTOS).withProperties(
+            PropertyFactory.circleRadius(7f),
+            PropertyFactory.circleColor(Color.Red.toArgb()),
+            PropertyFactory.circleStrokeWidth(2f),
+            PropertyFactory.circleStrokeColor(Color.White.toArgb())
+        )
+    )
+    // Si el estilo no trae la fuente de letras en la caché, el nombre no se dibuja pero el círculo sí
+    estilo.addLayer(
+        SymbolLayer(CAPA_NOMBRES, FUENTE_PUNTOS).withProperties(
+            PropertyFactory.textField(Expression.get(PROPIEDAD_NOMBRE)),
+            PropertyFactory.textFont(arrayOf("Noto Sans Regular")),
+            PropertyFactory.textSize(12f),
+            PropertyFactory.textOffset(arrayOf(0f, 1.2f)),
+            PropertyFactory.textAnchor("top"),
+            PropertyFactory.textHaloColor(Color.White.toArgb()),
+            PropertyFactory.textHaloWidth(1.5f)
+        )
+    )
+}
+
+private fun mostrarPuntos(estilo: Style, puntos: List<Punto>) {
+    val fuente = estilo.getSourceAs<GeoJsonSource>(FUENTE_PUNTOS) ?: return
+    fuente.setGeoJson(
+        FeatureCollection.fromFeatures(
+            puntos.map {
+                Feature.fromGeometry(Point.fromLngLat(it.longitud, it.latitud)).apply {
+                    addStringProperty(PROPIEDAD_NOMBRE, it.nombre)
+                }
+            }
+        )
+    )
 }
