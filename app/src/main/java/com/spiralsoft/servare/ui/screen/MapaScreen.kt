@@ -61,6 +61,7 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.engine.LocationEngineRequest
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
@@ -394,14 +395,24 @@ private fun actualizarUbicacion(context: Context, mapa: MapaListo, permitido: Bo
         return
     }
     if (!capa.isLocationComponentActivated) {
+        val peticion = LocationEngineRequest.Builder(INTERVALO_UBICACION_MS)
+            .setFastestInterval(INTERVALO_MINIMO_UBICACION_MS)
+            .setPriority(LocationEngineRequest.PRIORITY_HIGH_ACCURACY)
+            .build()
         capa.activateLocationComponent(
-            LocationComponentActivationOptions.builder(context, mapa.estilo).useDefaultLocationEngine(true).build()
+            LocationComponentActivationOptions.builder(context, mapa.estilo)
+                .useDefaultLocationEngine(true)
+                .locationEngineRequest(peticion)
+                .build()
         )
     }
     capa.isLocationComponentEnabled = true
     capa.cameraMode = CameraMode.NONE
     capa.renderMode = RenderMode.COMPASS
 }
+
+private const val INTERVALO_UBICACION_MS = 5_000L
+private const val INTERVALO_MINIMO_UBICACION_MS = 1000L
 
 private const val FUENTE_PUNTOS = "puntos"
 private const val CAPA_PUNTOS = "puntos-circulo"
