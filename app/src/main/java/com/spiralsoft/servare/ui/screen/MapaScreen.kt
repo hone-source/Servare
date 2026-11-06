@@ -381,8 +381,11 @@ private fun rememberMapView(context: Context, region: RegionMapa, onListo: (Mapa
 // El mapa con el estilo ya cargado: la capa de ubicación necesita las dos cosas
 private class MapaListo(val map: MapLibreMap, val estilo: Style)
 
-// La posición del dispositivo se dibuja con la capa de ubicación de MapLibre. Se activa al conceder el
-// permiso y se apaga si se revoca, el motor por defecto usa el GPS del sistema
+// La posición del dispositivo se dibuja con la capa de ubicación de MapLibre.
+// Se activa al conceder el permiso y se apaga si se revoca, el motor por defecto usa el GPS del sistema.
+// MapView.onStart/onStop (reenviados en rememberMapView) arrancan y detienen las actualizaciones,
+// así que solo hay posiciones con el mapa visible.
+// Con solo la ubicación aproximada el sistema limita las actualizaciones a una cada 10 minutos
 @SuppressLint("MissingPermission")
 private fun actualizarUbicacion(context: Context, mapa: MapaListo, permitido: Boolean) {
     val capa = mapa.map.locationComponent
