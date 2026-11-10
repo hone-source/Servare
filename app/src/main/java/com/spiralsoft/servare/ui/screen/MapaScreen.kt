@@ -20,6 +20,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -82,20 +83,24 @@ import org.maplibre.geojson.Point
 import kotlinx.coroutines.launch
 import java.util.Locale
 import com.spiralsoft.servare.data.mapa.GestorMapaOffline
+import com.spiralsoft.servare.domain.model.AvisoDescargaInicial
 import com.spiralsoft.servare.domain.model.EstadoRegionMapa
 import com.spiralsoft.servare.domain.model.Punto
 import com.spiralsoft.servare.domain.model.RegionMapa
 import com.spiralsoft.servare.ui.composable.EstadoPermisoUbicacion
+import com.spiralsoft.servare.ui.composable.ProblemasOperacion
+import com.spiralsoft.servare.ui.composable.TarjetaSesionExpirada
 import com.spiralsoft.servare.ui.composable.rememberPermisoUbicacion
 import com.spiralsoft.servare.ui.viewModel.MapaViewModel
 import com.spiralsoft.servare.ui.viewModel.state.DialogoPunto
 
-// Pantalla de prueba del mapa, solo en el build debug.
+// Pantalla del mapa.
 // El mapa ocupa toda la pantalla: la descarga está en el menú de la barra y el centrado en un botón flotante
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapaScreen(
     onVolver: () -> Unit,
+    onIniciarSesion: () -> Unit,
     viewModel: MapaViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -218,18 +223,29 @@ fun MapaScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Mapa") },
-                navigationIcon = {
-                    IconButton(onClick = onVolver) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+            Column {
+                TopAppBar(
+                    title = { Text("Mapa") },
+                    navigationIcon = {
+                        IconButton(onClick = onVolver) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        }
+                    },
+                    actions = {
+                        MenuPuntos(
+                            puntos = state.puntos,
+                            // Solo explica la lista vacía: con puntos guardados se muestran siempre
+                            descargaPendiente = state.descargaPendiente.takeIf { state.puntos.isEmpty() },
+                            refrescando = state.refrescando,
+                            onElegir = viewModel::verPunto,
+                            onSincronizar = viewModel::refrescar
+                        )
+                        MenuDescarga(viewModel.region, state.region, viewModel::descargar, viewModel::eliminar)
                     }
-                },
-                actions = {
-                    MenuPuntos(state.puntos, viewModel::verPunto)
-                    MenuDescarga(viewModel.region, state.region, viewModel::descargar, viewModel::eliminar)
-                }
-            )
+                )
+                state.sesionExpirada?.let { TarjetaSesionExpirada(it, onIniciarSesion) }
+                ProblemasOperacion(state.problemas, viewModel::resolver)
+            }
         },
         floatingActionButton = {
             SmallFloatingActionButton(
@@ -303,7 +319,13 @@ private fun DialogoNuevoPunto(
 
 // Lista vertical de los puntos guardados
 @Composable
-private fun MenuPuntos(puntos: List<Punto>, onElegir: (String) -> Unit) {
+private fun MenuPuntos(
+    puntos: List<Punto>,
+    descargaPendiente: AvisoDescargaInicial?,
+    refrescando: Boolean,
+    onElegir: (String) -> Unit,
+    onSincronizar: () -> Unit
+) {
     var abierto by remember { mutableStateOf(false) }
 
     Box {
@@ -312,8 +334,14 @@ private fun MenuPuntos(puntos: List<Punto>, onElegir: (String) -> Unit) {
         }
         DropdownMenu(expanded = abierto, onDismissRequest = { abierto = false }) {
             if (puntos.isEmpty()) {
+                // Vacía porque no hay puntos o porque aún no se descargaron: no es lo mismo
                 DropdownMenuItem(
-                    text = { Text("Aún no hay puntos guardados") },
+                    text = {
+                        Column {
+                            Text(descargaPendiente?.titulo ?: "Aún no hay puntos guardados")
+                            descargaPendiente?.let { Text(it.detalle, style = MaterialTheme.typography.bodySmall) }
+                        }
+                    },
                     onClick = {},
                     enabled = false
                 )
@@ -327,6 +355,15 @@ private fun MenuPuntos(puntos: List<Punto>, onElegir: (String) -> Unit) {
                     }
                 )
             }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(if (refrescando) "Sincronizando…" else "Sincronizar ahora") },
+                onClick = {
+                    abierto = false
+                    onSincronizar()
+                },
+                enabled = !refrescando
+            )
         }
     }
 }
