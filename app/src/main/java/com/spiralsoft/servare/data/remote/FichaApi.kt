@@ -10,7 +10,9 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-// Mismo contrato que PruebaApi: el operationId viaja en Idempotency-Key
+// Contrato con el servidor.
+// El operationId viaja en Idempotency-Key, con el mismo valor el servidor
+// devuelve el resultado previo en lugar de volver a aplicar la operación
 interface FichaApi {
 
     @GET("api/fichas")
@@ -19,21 +21,21 @@ interface FichaApi {
     @POST("api/fichas/{entityId}")
     suspend fun crear(
         @Path("entityId") entityId: String,
-        @Header(PruebaApi.IDEMPOTENCY_KEY) operationId: String,
+        @Header("Idempotency-Key") operationId: String,
         @Body ficha: FichaRequest
     ): Response<VersionResponse>
 
     @PUT("api/fichas/{entityId}")
     suspend fun actualizar(
         @Path("entityId") entityId: String,
-        @Header(PruebaApi.IDEMPOTENCY_KEY) operationId: String,
+        @Header("Idempotency-Key") operationId: String,
         @Body ficha: FichaRequest
     ): Response<VersionResponse>
 
     @DELETE("api/fichas/{entityId}")
     suspend fun eliminar(
         @Path("entityId") entityId: String,
-        @Header(PruebaApi.IDEMPOTENCY_KEY) operationId: String,
+        @Header("Idempotency-Key") operationId: String,
         @Query("baseVersion") baseVersion: Int?
     ): Response<VersionResponse>
 }

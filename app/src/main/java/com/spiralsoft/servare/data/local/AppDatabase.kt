@@ -6,6 +6,7 @@ import com.spiralsoft.servare.data.local.dao.EliminacionDao
 import com.spiralsoft.servare.data.local.dao.FichaDao
 import com.spiralsoft.servare.data.local.dao.OperationDao
 import com.spiralsoft.servare.data.local.dao.PruebaDao
+import com.spiralsoft.servare.data.local.dao.PuntoDao
 import com.spiralsoft.servare.data.local.dao.SyncInicialDao
 import com.spiralsoft.servare.data.local.entity.ElementoEspacioEntity
 import com.spiralsoft.servare.data.local.entity.EliminacionEntity
@@ -13,6 +14,7 @@ import com.spiralsoft.servare.data.local.entity.FichaEntity
 import com.spiralsoft.servare.data.local.entity.OperationEntity
 import com.spiralsoft.servare.data.local.entity.ParticipanteEntity
 import com.spiralsoft.servare.data.local.entity.PruebaEntity
+import com.spiralsoft.servare.data.local.entity.PuntoEntity
 import com.spiralsoft.servare.data.local.entity.PuntoPoligonalEntity
 import com.spiralsoft.servare.data.local.entity.RitualEntity
 import com.spiralsoft.servare.data.local.entity.SyncInicialEntity
@@ -31,6 +33,7 @@ import com.spiralsoft.servare.data.local.entity.SyncInicialEntity
         RitualEntity::class,
         ElementoEspacioEntity::class,
         ParticipanteEntity::class,
+        PuntoEntity::class,
     ],
     version = 1,
     exportSchema = false
@@ -44,5 +47,6 @@ abstract class AppDatabase : RoomDatabase() {
 
     //Dao para las operaciones propias del sistema
     abstract fun fichaDao(): FichaDao
+    abstract fun puntoDao(): PuntoDao
 
 }
