@@ -3,7 +3,7 @@ package com.spiralsoft.servare.domain.repository
 import kotlinx.coroutines.flow.Flow
 import com.spiralsoft.servare.domain.model.Punto
 
-interface PuntoRepository {
+interface PuntoRepository : RepositorioSincronizable {
     fun observarTodos(): Flow<List<Punto>>
 
     suspend fun guardar(nombre: String, latitud: Double, longitud: Double): ResultadoGuardadoPunto
