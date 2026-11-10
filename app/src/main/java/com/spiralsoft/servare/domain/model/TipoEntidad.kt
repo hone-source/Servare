@@ -4,5 +4,6 @@ package com.spiralsoft.servare.domain.model
 // Agregar las que se necesiten
 enum class TipoEntidad {
     PRUEBA,
-    FICHA
+    FICHA,
+    PUNTO
 }
