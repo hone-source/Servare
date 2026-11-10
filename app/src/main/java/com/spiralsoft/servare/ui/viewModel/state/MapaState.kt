@@ -1,5 +1,8 @@
 package com.spiralsoft.servare.ui.viewModel.state
 
+import com.spiralsoft.servare.domain.model.AvisoDescargaInicial
+import com.spiralsoft.servare.domain.model.AvisoOperacion
+import com.spiralsoft.servare.domain.model.AvisoSesionExpirada
 import com.spiralsoft.servare.domain.model.EstadoRegionMapa
 import com.spiralsoft.servare.domain.model.Punto
 
@@ -10,6 +13,11 @@ data class MapaState(
     val puntoNuevo: PuntoNuevo? = null,
     // Diálogo abierto sobre un punto guardado
     val dialogo: DialogoPunto? = null,
+    // Aún no se descargaron los puntos del servidor
+    val descargaPendiente: AvisoDescargaInicial? = null,
+    val sesionExpirada: AvisoSesionExpirada? = null, // se trabaja con lo guardado, pero nada se envía
+    val problemas: List<AvisoOperacion> = emptyList(), // cambios FALLIDA, CONFLICTO o BLOQUEADA, hasta que se resuelvan
+    val refrescando: Boolean = false, // el usuario pidió comprobar los cambios del servidor
     val mensaje: String? = null
 )
 
