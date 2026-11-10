@@ -110,9 +110,7 @@ fun AppNavHost(
                 onPruebas = if (BuildConfig.DEBUG) {
                     { navController.navigate(Screen.PruebaList.route) }
                 } else null,
-                onMapa = if (BuildConfig.DEBUG) {
-                    { navController.navigate(Screen.Mapa.route) }
-                } else null
+                onMapa = { navController.navigate(Screen.Mapa.route) }
             )
         }
         composable(
@@ -132,9 +130,12 @@ fun AppNavHost(
             )
         }
 
-        // Mapa de prueba, solo alcanzable desde el menú del build debug
+        // Mapa de sitios
         composable(Screen.Mapa.route) {
-            MapaScreen(onVolver = { navController.popBackStack() })
+            MapaScreen(
+                onVolver = { navController.popBackStack() },
+                onIniciarSesion = { navController.navigate(Screen.Login.route) }
+            )
         }
 
         // Entidad de prueba, solo alcanzable desde el menú del build debug
