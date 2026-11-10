@@ -18,6 +18,7 @@ import com.spiralsoft.servare.data.remote.AuthApi
 import com.spiralsoft.servare.data.remote.AuthInterceptor
 import com.spiralsoft.servare.data.remote.FichaApi
 import com.spiralsoft.servare.data.remote.PruebaApi
+import com.spiralsoft.servare.data.remote.PuntoApi
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -49,6 +50,12 @@ object NetworkModule {
     fun fichaApi(retrofit: Retrofit, okHttpClient: OkHttpClient, authInterceptor: AuthInterceptor): FichaApi {
         val cliente = okHttpClient.newBuilder().addInterceptor(authInterceptor).build()
         return retrofit.newBuilder().client(cliente).build().create(FichaApi::class.java)
+    }
+
+    @Provides @Singleton
+    fun puntoApi(retrofit: Retrofit, okHttpClient: OkHttpClient, authInterceptor: AuthInterceptor): PuntoApi {
+        val cliente = okHttpClient.newBuilder().addInterceptor(authInterceptor).build()
+        return retrofit.newBuilder().client(cliente).build().create(PuntoApi::class.java)
     }
 
     // Registrarse espera al servidor con el usuario mirando: la llamada completa se acota a 5s.
