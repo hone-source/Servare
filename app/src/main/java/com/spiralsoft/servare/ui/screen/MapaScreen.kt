@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.filled.LocationDisabled
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -49,6 +51,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -76,6 +80,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
 import kotlinx.coroutines.launch
+import java.util.Locale
 import com.spiralsoft.servare.data.mapa.GestorMapaOffline
 import com.spiralsoft.servare.domain.model.EstadoRegionMapa
 import com.spiralsoft.servare.domain.model.Punto
@@ -83,6 +88,7 @@ import com.spiralsoft.servare.domain.model.RegionMapa
 import com.spiralsoft.servare.ui.composable.EstadoPermisoUbicacion
 import com.spiralsoft.servare.ui.composable.rememberPermisoUbicacion
 import com.spiralsoft.servare.ui.viewModel.MapaViewModel
+import com.spiralsoft.servare.ui.viewModel.state.DialogoPunto
 
 // Pantalla de prueba del mapa, solo en el build debug.
 // El mapa ocupa toda la pantalla: la descarga está en el menú de la barra y el centrado en un botón flotante
@@ -159,6 +165,35 @@ fun MapaScreen(
         )
     }
 
+    state.dialogo?.let { dialogo ->
+        val punto = state.puntos.firstOrNull { it.entityId == dialogo.entityId }
+        if (punto == null) {
+            // El punto desapareció mientras el diálogo estaba abierto
+            LaunchedEffect(dialogo) { viewModel.cerrarDialogo() }
+        } else {
+            when (dialogo) {
+                is DialogoPunto.Detalle -> DialogoDetallePunto(
+                    punto = punto,
+                    onEditar = { viewModel.editarPunto(punto.entityId) },
+                    onEliminar = { viewModel.pedirEliminarPunto(punto.entityId) },
+                    onCerrar = viewModel::cerrarDialogo
+                )
+                is DialogoPunto.Editar -> DialogoEditarPunto(
+                    punto = punto,
+                    onGuardar = { nombre, latitud, longitud ->
+                        viewModel.actualizarPunto(punto.entityId, nombre, latitud, longitud)
+                    },
+                    onCancelar = viewModel::cerrarDialogo
+                )
+                is DialogoPunto.ConfirmarEliminar -> DialogoConfirmarEliminar(
+                    punto = punto,
+                    onEliminar = { viewModel.eliminarPunto(punto.entityId) },
+                    onCancelar = viewModel::cerrarDialogo
+                )
+            }
+        }
+    }
+
     LaunchedEffect(state.mensaje) {
         state.mensaje?.let {
             snackbar.showSnackbar(it)
@@ -191,6 +226,7 @@ fun MapaScreen(
                     }
                 },
                 actions = {
+                    MenuPuntos(state.puntos, viewModel::verPunto)
                     MenuDescarga(viewModel.region, state.region, viewModel::descargar, viewModel::eliminar)
                 }
             )
@@ -261,6 +297,146 @@ private fun DialogoNuevoPunto(
         confirmButton = {
             TextButton(onClick = { onGuardar(nombre) }, enabled = nombre.isNotBlank()) { Text("Guardar") }
         },
+        dismissButton = { TextButton(onClick = onCancelar) { Text("Cancelar") } }
+    )
+}
+
+// Lista vertical de los puntos guardados
+@Composable
+private fun MenuPuntos(puntos: List<Punto>, onElegir: (String) -> Unit) {
+    var abierto by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { abierto = true }) {
+            Icon(Icons.Outlined.Place, contentDescription = "Puntos guardados")
+        }
+        DropdownMenu(expanded = abierto, onDismissRequest = { abierto = false }) {
+            if (puntos.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text("Aún no hay puntos guardados") },
+                    onClick = {},
+                    enabled = false
+                )
+            }
+            puntos.forEach { punto ->
+                DropdownMenuItem(
+                    text = { Text(punto.nombre, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    onClick = {
+                        abierto = false
+                        onElegir(punto.entityId)
+                    }
+                )
+            }
+        }
+    }
+}
+
+// Información del punto y lo que se puede hacer con él
+@Composable
+private fun DialogoDetallePunto(
+    punto: Punto,
+    onEditar: () -> Unit,
+    onEliminar: () -> Unit,
+    onCerrar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCerrar,
+        title = { Text(punto.nombre) },
+        text = {
+            Column {
+                Text("Latitud: %.5f".format(punto.latitud), style = MaterialTheme.typography.bodyMedium)
+                Text("Longitud: %.5f".format(punto.longitud), style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+        confirmButton = { TextButton(onClick = onEditar) { Text("Editar") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onEliminar) { Text("Eliminar") }
+                TextButton(onClick = onCerrar) { Text("Cerrar") }
+            }
+        }
+    )
+}
+
+// Cambia nombre y coordenadas.
+// Sin nombre o con coordenadas fuera de rango no se puede guardar
+@Composable
+private fun DialogoEditarPunto(
+    punto: Punto,
+    onGuardar: (nombre: String, latitud: Double, longitud: Double) -> Unit,
+    onCancelar: () -> Unit
+) {
+    var nombre by rememberSaveable(punto.entityId) { mutableStateOf(punto.nombre) }
+    // Seis decimales son unos 10 cm: el resto es ruido del toque en el mapa
+    var latitud by rememberSaveable(punto.entityId) { mutableStateOf("%.6f".format(Locale.US, punto.latitud)) }
+    var longitud by rememberSaveable(punto.entityId) { mutableStateOf("%.6f".format(Locale.US, punto.longitud)) }
+
+    val lat = leerCoordenada(latitud, 90.0)
+    val lon = leerCoordenada(longitud, 180.0)
+
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text("Editar punto") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nombre") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Next
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                CampoCoordenada(latitud, { latitud = it }, "Latitud", "Entre −90 y 90", lat == null, ImeAction.Next)
+                CampoCoordenada(longitud, { longitud = it }, "Longitud", "Entre −180 y 180", lon == null, ImeAction.Done)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (lat != null && lon != null) onGuardar(nombre, lat, lon) },
+                enabled = nombre.isNotBlank() && lat != null && lon != null
+            ) { Text("Guardar") }
+        },
+        dismissButton = { TextButton(onClick = onCancelar) { Text("Cancelar") } }
+    )
+}
+
+@Composable
+private fun CampoCoordenada(
+    valor: String,
+    onCambio: (String) -> Unit,
+    etiqueta: String,
+    ayuda: String,
+    invalida: Boolean,
+    accion: ImeAction
+) {
+    OutlinedTextField(
+        value = valor,
+        onValueChange = onCambio,
+        label = { Text(etiqueta) },
+        singleLine = true,
+        isError = invalida,
+        supportingText = { Text(ayuda) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = accion),
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+    )
+}
+
+// El número escrito, o null si no lo es o se sale de ±limite. Acepta la coma como separador decimal
+private fun leerCoordenada(texto: String, limite: Double): Double? =
+    texto.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && it in -limite..limite }
+
+// Un dato guardado no se borra sin que el usuario lo confirme
+@Composable
+private fun DialogoConfirmarEliminar(punto: Punto, onEliminar: () -> Unit, onCancelar: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text("Eliminar punto") },
+        text = { Text("¿Eliminar «${punto.nombre}»? Se quitará de este dispositivo.") },
+        confirmButton = { TextButton(onClick = onEliminar) { Text("Eliminar") } },
         dismissButton = { TextButton(onClick = onCancelar) { Text("Cancelar") } }
     )
 }
