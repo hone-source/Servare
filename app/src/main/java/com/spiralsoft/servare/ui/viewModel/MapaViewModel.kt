@@ -9,15 +9,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.spiralsoft.servare.data.mapa.GestorMapaOffline
+import com.spiralsoft.servare.domain.model.AccionOperacion
 import com.spiralsoft.servare.domain.model.EstadoRegionMapa
 import com.spiralsoft.servare.domain.model.RegionMapa
 import com.spiralsoft.servare.domain.repository.PuntoRepository
 import com.spiralsoft.servare.domain.repository.ResultadoEliminacionPunto
 import com.spiralsoft.servare.domain.repository.ResultadoGuardadoPunto
+import com.spiralsoft.servare.notification.ServicioNotificacionEstado
 import com.spiralsoft.servare.ui.viewModel.state.DialogoPunto
 import com.spiralsoft.servare.ui.viewModel.state.MapaState
 import com.spiralsoft.servare.ui.viewModel.state.PuntoNuevo
@@ -25,7 +28,8 @@ import com.spiralsoft.servare.ui.viewModel.state.PuntoNuevo
 @HiltViewModel
 class MapaViewModel @Inject constructor(
     private val gestor: GestorMapaOffline,
-    private val puntos: PuntoRepository
+    private val puntos: PuntoRepository,
+    private val servicio: ServicioNotificacionEstado
 ) : ViewModel() {
 
     val region = RegionMapa.ZACATECAS
@@ -45,6 +49,42 @@ class MapaViewModel @Inject constructor(
             puntos.observarTodos()
                 .catch { _state.update { it.copy(mensaje = "No se pudieron leer los puntos guardados.") } }
                 .collect { lista -> _state.update { it.copy(puntos = lista) } }
+        }
+        // Resultado de la sincronización: confirmaciones y fallos
+        viewModelScope.launch {
+            servicio.resultados.collect { aviso -> _state.update { it.copy(mensaje = aviso.mensaje) } }
+        }
+        viewModelScope.launch {
+            servicio.sesionExpirada.collect { aviso -> _state.update { it.copy(sesionExpirada = aviso) } }
+        }
+        viewModelScope.launch {
+            servicio.problemasOperacion.collect { avisos -> _state.update { it.copy(problemas = avisos) } }
+        }
+        viewModelScope.launch {
+            combine(puntos.observarDescargaInicial(), servicio.descargaInicial) { completa, aviso ->
+                aviso.takeUnless { completa }
+            }.collect { aviso -> _state.update { it.copy(descargaPendiente = aviso) } }
+        }
+    }
+
+    // Comprueba los cambios del servidor, el envío de la cola lo hace el motor por su cuenta
+    fun refrescar() {
+        if (_state.value.refrescando) return
+        _state.update { it.copy(refrescando = true) }
+        viewModelScope.launch {
+            val mensaje = try {
+                puntos.refrescar().mensaje(servicio)
+            } finally {
+                _state.update { it.copy(refrescando = false) }
+            }
+            _state.update { it.copy(mensaje = mensaje) }
+        }
+    }
+
+    fun resolver(operationId: String, accion: AccionOperacion) {
+        viewModelScope.launch {
+            val mensaje = puntos.resolver(operationId, accion).mensaje()
+            _state.update { it.copy(mensaje = mensaje) }
         }
     }
 
