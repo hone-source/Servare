@@ -61,7 +61,7 @@ class TraductorRespuestasUnitTest {
             "no es json",                       // mal formado
             "[1,2,3]",                          // JSON que no es un objeto
             """{"error":"conflicto"}""",        // sin "actual"
-            """{"actual":null}"""               // "actual" nulo
+            """{"actual":null}""",              // "actual" nulo
         )
         for (cuerpo in cuerpos) {
             val resultado = enviar(error(409, cuerpo))

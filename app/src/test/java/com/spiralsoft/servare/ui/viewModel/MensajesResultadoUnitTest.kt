@@ -23,7 +23,7 @@ class MensajesResultadoUnitTest {
         assertEquals("Este cambio ya se resolvió o cambió de estado", ResultadoResolucion.NoDisponible.mensaje())
         assertEquals(
             "No se pudo resolver el cambio. Intenta de nuevo.",
-            ResultadoResolucion.ErrorAlmacenamiento.mensaje()
+            ResultadoResolucion.ErrorAlmacenamiento.mensaje(),
         )
     }
 

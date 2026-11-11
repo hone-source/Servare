@@ -1,6 +1,5 @@
 package com.spiralsoft.servare.data.remote
 
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -50,7 +49,7 @@ class FichaDtoUnitTest {
         rituales = listOf(Ritual(TipoRitual.OFRENDA, "otro", "Nombres", "Anual", "Descripción")),
         descripcionEspacio = "Descripción",
         elementos = listOf(
-            ElementoEspacio(TipoLugar.NATURAL, "redonda", "ancestro", "uso", "carac", "elem", "1", "2", "3", "4")
+            ElementoEspacio(TipoLugar.NATURAL, "redonda", "ancestro", "uso", "carac", "elem", "1", "2", "3", "4"),
         ),
         observacionesCartografia = "Obs",
         danos = "Daños",
@@ -65,7 +64,7 @@ class FichaDtoUnitTest {
         integrantesEquipo = "Equipo",
         comentariosFinales = "Fin",
         autoridadLocal = "Autoridad",
-        participantes = listOf(Participante("Comisario", "Ana"))
+        participantes = listOf(Participante("Comisario", "Ana")),
     )
 
     @Test

@@ -32,7 +32,7 @@ class DefaultFichaRepositoryUnitTest {
     private val repo by lazy {
         DefaultFichaRepository(
             bd.db.fichaDao(), EscrituraOutbox(bd.db, EncoladorOperaciones(bd.operaciones, reloj), bd.eliminaciones, scheduler, reloj),
-            bd.syncInicial, mockk<SyncEngine>(), mockk<ResolutorOperaciones>()
+            bd.syncInicial, mockk<SyncEngine>(), mockk<ResolutorOperaciones>(),
         )
     }
 

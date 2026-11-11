@@ -52,7 +52,7 @@ class SesionRemoteDataSourceConCableUnitTest {
             409 to ResultadoRegistroRemoto.CorreoYaRegistrado,
             400 to ResultadoRegistroRemoto.Rechazado,
             422 to ResultadoRegistroRemoto.Rechazado,
-            500 to ResultadoRegistroRemoto.ErrorServidor
+            500 to ResultadoRegistroRemoto.ErrorServidor,
         )
         for ((codigo, esperado) in esperados) {
             api.responder(codigo)

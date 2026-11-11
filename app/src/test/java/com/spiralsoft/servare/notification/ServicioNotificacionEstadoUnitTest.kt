@@ -18,7 +18,6 @@ import com.spiralsoft.servare.domain.model.AccionOperacion.REINTENTAR
 import com.spiralsoft.servare.domain.model.AvisoOperacion
 import com.spiralsoft.servare.domain.model.AvisoResultado
 import com.spiralsoft.servare.domain.model.CausaConflicto
-import com.spiralsoft.servare.domain.model.EstadoConectividad
 import com.spiralsoft.servare.domain.model.EstadoConectividad.CONECTADO
 import com.spiralsoft.servare.domain.model.EstadoConectividad.RED_SIN_SERVIDOR
 import com.spiralsoft.servare.domain.model.EstadoConectividad.SIN_RED
@@ -48,8 +47,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import kotlin.time.Duration.Companion.milliseconds
 
-// Todo lo que el usuario lee sobre el estado de la app sale de aquí: cada caso fija el mensaje y las acciones
+// Conjunto de lo que el usuario lee sobre el estado de la app sale de aquí: cada caso fija el mensaje y las acciones
 @RunWith(RobolectricTestRunner::class)
 class ServicioNotificacionEstadoUnitTest {
     @get:Rule val bd = BaseDeDatosRegla()
@@ -68,9 +68,9 @@ class ServicioNotificacionEstadoUnitTest {
                 mapOf(
                     TipoEntidad.PRUEBA to prueba,
                     TipoEntidad.FICHA to AdaptadorFalso(TipoEntidad.FICHA),
-                    TipoEntidad.PUNTO to AdaptadorFalso(TipoEntidad.PUNTO)
+                    TipoEntidad.PUNTO to AdaptadorFalso(TipoEntidad.PUNTO),
                 )
-            )
+            ),
         )
     }
 
@@ -80,7 +80,7 @@ class ServicioNotificacionEstadoUnitTest {
         bd.pruebas.insert(PruebaEntity(id, "Título $id", "texto", 1, createdAt = 1, version = 2))
 
     private suspend fun <T> esperar(flujo: StateFlow<T>, condicion: (T) -> Boolean): T =
-        withTimeout(5_000) { flujo.first(condicion) }
+        withTimeout(5_000.milliseconds) { flujo.first(condicion) }
 
     private suspend fun problemas(cantidad: Int): List<AvisoOperacion> =
         esperar(servicio.problemasOperacion) { it.size == cantidad }
@@ -366,7 +366,7 @@ class ServicioNotificacionEstadoUnitTest {
 
         val avisos = problemas(casos.size)
 
-        assertEquals(casos.keys, avisos.map { it.operationId }.toSet())
+        assertEquals(casos.keys, avisos.asSequence().map { it.operationId }.toSet())
         avisos.forEach { assertEquals(it.operationId, listOf(DESCARTAR), it.acciones) }
     }
 
@@ -430,6 +430,6 @@ class ServicioNotificacionEstadoUnitTest {
         bd.operaciones.insert(conflicto())
         val aviso = problemas(1).single()
         assertTrue(aviso.acciones.all { it in AccionOperacion.entries })
-        assertTrue("toda acción ofrecida tiene confirmación o es no destructiva", aviso.acciones.all { it == REINTENTAR || it in aviso.confirmaciones })
+        assertTrue("toda acción ofrecida tiene confirmación o es no destructiva", aviso.acciones.all { it == REINTENTAR || (it in aviso.confirmaciones) })
     }
 }

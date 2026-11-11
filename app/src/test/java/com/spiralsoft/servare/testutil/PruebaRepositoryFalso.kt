@@ -38,7 +38,7 @@ class PruebaRepositoryFalso : PruebaRepository {
     override suspend fun eliminar(entityId: String): ResultadoEliminacionPrueba =
         ResultadoEliminacionPrueba.Eliminada(entityId)
 
-    override fun observarDescargaInicial(): Flow<Boolean> = flowOf(true)
+    override fun observarDescargaInicial(): Flow<Boolean> = flowOf(value = true)
 
     override suspend fun resolver(operationId: String, accion: AccionOperacion): ResultadoResolucion =
         ResultadoResolucion.Resuelta(accion)

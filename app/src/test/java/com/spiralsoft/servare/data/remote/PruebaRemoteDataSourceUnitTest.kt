@@ -14,7 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-// El molde de los recursos sincronizables, de la llamada al cable y de vuelta: método, ruta, cabeceras, cuerpo y resultado
+// El molde de los recursos sincronizables, de la llamada al cable y de vuelta: canjunto, ruta, cabeceras, cuerpo y resultado
 class PruebaRemoteDataSourceUnitTest {
     @get:Rule val api = ServidorApi()
 
@@ -111,7 +111,7 @@ class PruebaRemoteDataSourceUnitTest {
         api.responder(
             200,
             """[{"entityId":"a","titulo":"A","texto":"x","numero":1,"createdAt":1,"version":2},
-                {"entityId":"b","titulo":"B","texto":"y","numero":2,"createdAt":2,"campoNuevo":true}]"""
+                {"entityId":"b","titulo":"B","texto":"y","numero":2,"createdAt":2,"campoNuevo":true}]""",
         )
 
         val resultado = remoto.listar() as ResultadoPull.Datos<PruebaRemota>
@@ -177,7 +177,7 @@ class PruebaRemoteDataSourceUnitTest {
             404 to ResultadoEnvio.Conflicto("El registro ya no existe en el servidor", CausaConflicto.INEXISTENTE_EN_SERVIDOR),
             410 to ResultadoEnvio.Conflicto("El registro ya no existe en el servidor", CausaConflicto.INEXISTENTE_EN_SERVIDOR),
             401 to ResultadoEnvio.SesionExpirada,
-            403 to ResultadoEnvio.SesionExpirada
+            403 to ResultadoEnvio.SesionExpirada,
         )
         for ((codigo, esperado) in esperados) {
             api.responder(codigo)

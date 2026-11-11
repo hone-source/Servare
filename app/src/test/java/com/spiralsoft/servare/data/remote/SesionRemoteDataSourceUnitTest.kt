@@ -51,7 +51,7 @@ class SesionRemoteDataSourceUnitTest {
 
     @Test
     fun registro_exitoso_sin_cuerpo_es_error_de_servidor() = runTest {
-        val (_, origen) = origen { Response.success<SesionResponse>(null) }
+        val (_, origen) = origen { Response.success(null) }
         assertEquals(ResultadoRegistroRemoto.ErrorServidor, origen.registrar("a@b.mx", "x", "k"))
     }
 
@@ -64,7 +64,7 @@ class SesionRemoteDataSourceUnitTest {
             422 to ResultadoRegistroRemoto.Rechazado,
             401 to ResultadoRegistroRemoto.ErrorServidor,
             500 to ResultadoRegistroRemoto.ErrorServidor,
-            503 to ResultadoRegistroRemoto.ErrorServidor
+            503 to ResultadoRegistroRemoto.ErrorServidor,
         )
         for ((codigo, resultado) in esperado) {
             val (_, origen) = origen { error(codigo) }

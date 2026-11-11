@@ -64,7 +64,7 @@ class AdaptadorFichaUnitTest {
         adaptador.enviar(operacion("b", 2, entidad = "f1", tipoEntidad = TipoEntidad.FICHA, baseVersion = 1))
         adaptador.enviar(operacion("c", 3, tipo = TipoOperacion.ELIMINAR, entidad = "f1", tipoEntidad = TipoEntidad.FICHA, baseVersion = 2))
 
-        coVerify { remoto.crear("a", match { it.rituales.size == 3 && it.participantes.size == 2 }) }
+        coVerify { remoto.crear("a", match { (it.rituales.size == 3) && (it.participantes.size == 2) }) }
         coVerify { remoto.actualizar("b", match { it.ficha.nombre == "Mía" }, 1) }
         coVerify { remoto.eliminar("c", "f1", 2) }
     }

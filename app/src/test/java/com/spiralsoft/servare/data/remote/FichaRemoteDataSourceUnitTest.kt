@@ -55,7 +55,7 @@ class FichaRemoteDataSourceUnitTest {
         val rituales: JsonArray = api.solicitud().cuerpoJson().getValue("datos").jsonObject.getValue("rituales").jsonArray
         assertEquals(
             listOf("\"Primero\"", "\"Segundo\"", "\"Tercero\""),
-            rituales.map { it.jsonObject.getValue("nombres").toString() }
+            rituales.map { it.jsonObject.getValue("nombres").toString() },
         )
     }
 
@@ -104,7 +104,7 @@ class FichaRemoteDataSourceUnitTest {
         api.responder(
             200,
             """[{"entityId":"f1","datos":{"nombre":"Cerro","rituales":[{"nombres":"R1"}],"campoNuevo":1},"createdAt":3,"version":2},
-                {"entityId":"f2","datos":{},"createdAt":4}]"""
+                {"entityId":"f2","datos":{},"createdAt":4}]""",
         )
 
         val resultado = remoto.listar() as ResultadoPull.Datos<FichaRemota>

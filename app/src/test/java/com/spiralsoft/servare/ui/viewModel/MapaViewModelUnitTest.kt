@@ -39,7 +39,7 @@ class MapaViewModelUnitTest {
     private val gestor = mockk<GestorMapaOffline>()
     private val puntos = mockk<PuntoRepository>()
     private val lista = MutableStateFlow<List<Punto>>(emptyList())
-    private val descargaCompleta = MutableStateFlow(true)
+    private val descargaCompleta = MutableStateFlow(value = true)
     private val resultados = MutableSharedFlow<AvisoResultado>(extraBufferCapacity = 1)
     private val sesionExpirada = MutableStateFlow<AvisoSesionExpirada?>(null)
     private val aviso = AvisoDescargaInicial("Aún no se descargaron", "sin red")
@@ -144,7 +144,7 @@ class MapaViewModelUnitTest {
     @Test
     fun descargar_muestra_el_avance_y_deja_el_estado_final() = runTest(principal.dispatcher) {
         coEvery { gestor.descargar(any()) } returns flowOf(
-            EstadoRegionMapa.Descargando(10, 100), EstadoRegionMapa.Descargando(100, 100), EstadoRegionMapa.Completa(5_000)
+            EstadoRegionMapa.Descargando(10, 100), EstadoRegionMapa.Descargando(100, 100), EstadoRegionMapa.Completa(5_000),
         )
 
         vm.descargar()
@@ -168,17 +168,17 @@ class MapaViewModelUnitTest {
 
     @Test
     fun una_segunda_descarga_mientras_corre_la_primera_se_ignora() = runTest(principal.dispatcher) {
-        val sin_fin = CompletableDeferred<Unit>()
+        val sinFin = CompletableDeferred<Unit>()
         coEvery { gestor.descargar(any()) } returns flow {
             emit(EstadoRegionMapa.Descargando(1, 100))
-            sin_fin.await()
+            sinFin.await()
         }
 
         vm.descargar()
         vm.descargar()
 
         io.mockk.verify(exactly = 1) { gestor.descargar(any()) }
-        sin_fin.complete(Unit)
+        sinFin.complete(Unit)
     }
 
     @Test
@@ -252,8 +252,8 @@ class MapaViewModelUnitTest {
             coEvery { puntos.guardar(any(), any(), any()) } returns resultado
             vm.proponerPunto(1.0, 1.0)
             vm.guardarPunto("P")
-            assertNull("$resultado", vm.state.value.puntoNuevo)
-            assertTrue("$resultado", vm.state.value.mensaje!!.startsWith(texto))
+            assertNull(resultado.toString(), vm.state.value.puntoNuevo)
+            assertTrue(resultado.toString(), vm.state.value.mensaje!!.startsWith(texto))
             vm.mensajeMostrado()
         }
     }

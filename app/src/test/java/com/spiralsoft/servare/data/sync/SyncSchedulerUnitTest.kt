@@ -24,7 +24,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import javax.inject.Provider
+import kotlin.time.Duration.Companion.milliseconds
 
 // Single-flight: un solo ciclo en espera, con uno en curso, otro encadenado detrás.
 // WorkManager de pruebas: los trabajos no corren hasta que la prueba cumple sus restricciones
@@ -49,14 +49,14 @@ class SyncSchedulerUnitTest {
             contexto, Configuration.Builder().setWorkerFactory(fabrica).build()
         )
         workManager = WorkManager.getInstance(contexto)
-        scheduler = SyncScheduler(contexto, Provider { gestor })
+        scheduler = SyncScheduler(contexto) { gestor }
     }
 
     private fun estados(cola: String) = workManager.getWorkInfosForUniqueWork(cola).get().map { it.state }
 
     // requestSync no bloquea al llamador: lanza en su propio ámbito
     private suspend fun esperarCola(cola: String, cantidad: Int) =
-        withTimeout(5_000) { while (estados(cola).size < cantidad) delay(20) }
+        withTimeout(5_000.milliseconds) { while (estados(cola).size < cantidad) delay(20.milliseconds) }
 
     @Test
     fun sin_sesion_no_se_encola_nada() = runBlocking {

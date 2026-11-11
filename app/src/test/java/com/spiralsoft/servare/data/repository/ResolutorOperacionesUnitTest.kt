@@ -51,7 +51,7 @@ class ResolutorOperacionesUnitTest {
     private val scheduler = mockk<SyncScheduler>(relaxed = true)
     private val resolutor by lazy {
         val adaptadorPrueba = AdaptadorPrueba(
-            bd.pruebas, mockk<PruebaRemoteDataSource>(), Json, bd.db, bd.operaciones, bd.eliminaciones, bd.syncInicial, reloj
+            bd.pruebas, mockk<PruebaRemoteDataSource>(), Json, bd.db, bd.operaciones, bd.eliminaciones, bd.syncInicial, reloj,
         )
         ResolutorOperaciones(
             bd.db, bd.operaciones, EncoladorOperaciones(bd.operaciones, reloj), bd.eliminaciones,

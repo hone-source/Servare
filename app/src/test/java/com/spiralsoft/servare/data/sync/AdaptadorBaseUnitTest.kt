@@ -65,7 +65,7 @@ class AdaptadorBaseUnitTest {
         val resultado = adaptador.enviar(operacion("op1", 1, tipo = TipoOperacion.CREAR, entidad = "e1"))
 
         assertEquals(ResultadoEnvio.Confirmada(1), resultado)
-        coVerify { remoto.crear("op1", match { it.entityId == "e1" && it.titulo == "Versión más reciente" }) }
+        coVerify { remoto.crear("op1", match { (it.entityId == "e1") && (it.titulo == "Versión más reciente") }) }
     }
 
     @Test

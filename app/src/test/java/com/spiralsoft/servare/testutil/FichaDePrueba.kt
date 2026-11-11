@@ -26,7 +26,7 @@ fun fichaLlena(nombre: String = "Cerro") = Ficha(
     rituales = listOf(
         Ritual(TipoRitual.OFRENDA, "", "Primero", "Anual", "Descripción 1"),
         Ritual(TipoRitual.FIESTA, "", "Segundo", "Mensual", "Descripción 2"),
-        Ritual(TipoRitual.OTRO, "Especial", "Tercero", "", "")
+        Ritual(TipoRitual.OTRO, "Especial", "Tercero", "", ""),
     ),
     elementos = listOf(ElementoEspacio(TipoLugar.NATURAL, "redonda", "ancestro", "uso", "carac", "elem", "1", "2", "3", "4")),
     fotografias = RegistroArchivos("10", "IMG_1", "IMG_10"),

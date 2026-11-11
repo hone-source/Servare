@@ -78,10 +78,10 @@ class SyncEngineUnitTest {
                 mapOf(
                     TipoEntidad.PRUEBA to adaptadorPrueba,
                     TipoEntidad.FICHA to AdaptadorFalso(TipoEntidad.FICHA),
-                    TipoEntidad.PUNTO to AdaptadorFalso(TipoEntidad.PUNTO)
+                    TipoEntidad.PUNTO to AdaptadorFalso(TipoEntidad.PUNTO),
                 )
             ),
-            monitor, gestor, notificaciones, reloj
+            monitor, gestor, notificaciones, reloj,
         )
     }
 

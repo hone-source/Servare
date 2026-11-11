@@ -430,7 +430,7 @@ class OperationDaoUnitTest {
 
         assertEquals(
             setOf("pendiente", "fallida", "conflicto", "bloqueada", "procesando"),
-            protegidas.toSet()
+            protegidas.toSet(),
         )
     }
 

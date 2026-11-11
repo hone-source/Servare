@@ -84,16 +84,16 @@ class LoginViewModelUnitTest {
             Caso(ResultadoInicioSesion.SinConexion(EstadoConectividad.SIN_RED), mensaje = MensajesSesion.sinConexion),
             Caso(ResultadoInicioSesion.SinRespuesta, mensaje = MensajesSesion.sinRespuesta),
             Caso(ResultadoInicioSesion.Rechazado, mensaje = MensajesSesion.rechazado),
-            Caso(ResultadoInicioSesion.ErrorServidor, mensaje = MensajesSesion.errorServidor)
+            Caso(ResultadoInicioSesion.ErrorServidor, mensaje = MensajesSesion.errorServidor),
         )
         for (caso in casos) {
             resultado(caso.resultado)
             vm.enviar()
 
             val s = vm.state.value
-            assertEquals("${caso.resultado}", caso.errorCorreo, s.errorCorreo)
-            assertEquals("${caso.resultado}", caso.errorContrasena, s.errorContrasena)
-            assertEquals("${caso.resultado}", caso.mensaje, s.mensaje)
+            assertEquals(caso.resultado.toString(), caso.errorCorreo, s.errorCorreo)
+            assertEquals(caso.resultado.toString(), caso.errorContrasena, s.errorContrasena)
+            assertEquals(caso.resultado.toString(), caso.mensaje, s.mensaje)
             assertFalse("${caso.resultado}: se puede volver a intentar", s.enviando)
             vm.mensajeMostrado()
             vm.updateCorreo("a@b.com")

@@ -32,6 +32,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.milliseconds
 
 // Las tres posiciones del monitor (SIN_RED, RED_SIN_SERVIDOR, CONECTADO) con un servidor HTTP real
 // (MockWebServer) y el sistema operativo doblado: los callbacks de red los dispara la prueba
@@ -70,7 +71,7 @@ class ConnectivityMonitorUnitTest {
         callback.captured.onCapabilitiesChanged(red, conInternet(internet))
 
     private suspend fun esperar(estado: EstadoConectividad) =
-        withTimeout(5_000) { monitor.estado.first { it == estado } }
+        withTimeout(5_000.milliseconds) { monitor.estado.first { it == estado } }
 
     private fun conectar(red: Network = red()): Network {
         monitor.iniciar()
@@ -111,7 +112,7 @@ class ConnectivityMonitorUnitTest {
         respuesta = { MockResponse.Builder().code(503).build() }
 
         conectar()
-        delay(400)
+        delay(400.milliseconds)
 
         assertEquals(RED_SIN_SERVIDOR, monitor.estado.value)
         verify(exactly = 0) { scheduler.requestSync() }
@@ -161,7 +162,7 @@ class ConnectivityMonitorUnitTest {
 
         aparece(red())
         assertEquals("hasta confirmar no se asume el servidor", RED_SIN_SERVIDOR, monitor.estado.value)
-        withTimeout(5_000) { while (monitor.estado.value != CONECTADO) delay(20) }
+        withTimeout(5_000.milliseconds) { while (monitor.estado.value != CONECTADO) delay(20.milliseconds) }
 
         assertTrue(servidor.requestCount > peticiones)
         verify(exactly = 2) { scheduler.requestSync() }
@@ -200,7 +201,7 @@ class ConnectivityMonitorUnitTest {
             assertEquals("código $codigo", false, monitor.confirmarAlcanzabilidad())
             respuesta = { MockResponse.Builder().code(200).build() }
             monitor.confirmarAlcanzabilidad()
-            withTimeout(5_000) { while (monitor.estado.value != CONECTADO) delay(20) }
+            withTimeout(5_000.milliseconds) { while (monitor.estado.value != CONECTADO) delay(20.milliseconds) }
         }
     }
 
@@ -225,10 +226,10 @@ class ConnectivityMonitorUnitTest {
     fun una_perdida_de_red_durante_el_health_check_no_se_pisa_con_conectado() = runBlocking {
         respuesta = { MockResponse.Builder().code(200).headersDelay(600, TimeUnit.MILLISECONDS).build() }
         val r = conectar()
-        delay(150) // el health check ya está en vuelo
+        delay(150.milliseconds) // el health check ya está en vuelo
 
         callback.captured.onLost(r)
-        delay(900)
+        delay(900.milliseconds)
 
         assertEquals(SIN_RED, monitor.estado.value)
         verify(exactly = 0) { scheduler.requestSync() }

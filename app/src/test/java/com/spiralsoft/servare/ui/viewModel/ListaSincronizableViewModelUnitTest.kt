@@ -34,7 +34,7 @@ class ListaSincronizableViewModelUnitTest {
     @get:Rule val principal = ReglaDispatcherPrincipal()
 
     private val registros = MutableStateFlow<List<Prueba>>(emptyList())
-    private val descargaCompleta = MutableStateFlow(false)
+    private val descargaCompleta = MutableStateFlow(value = false)
     private val repo = mockk<PruebaRepository>().also {
         every { it.observarTodas() } returns registros
         every { it.observarDescargaInicial() } returns descargaCompleta
@@ -138,7 +138,7 @@ class ListaSincronizableViewModelUnitTest {
             ResultadoRefresco.Actualizada(listOf("Uno")) to "quitados: [Uno]",
             ResultadoRefresco.SinSesion to "Inicia sesión para actualizar",
             ResultadoRefresco.SinServidor to "No se pudo conectar con el servidor. Se actualizará al recuperar la conexión",
-            ResultadoRefresco.ErrorDescarga to "No se pudieron descargar los registros. Intenta de nuevo."
+            ResultadoRefresco.ErrorDescarga to "No se pudieron descargar los registros. Intenta de nuevo.",
         )
         for ((resultado, mensaje) in casos) {
             coEvery { repo.refrescar() } returns resultado

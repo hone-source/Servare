@@ -8,7 +8,6 @@ import com.spiralsoft.servare.data.remote.SesionRemoteDataSource
 import com.spiralsoft.servare.data.sesion.GestorSesion
 import com.spiralsoft.servare.data.sync.SyncEngine
 import com.spiralsoft.servare.data.sync.SyncScheduler
-import com.spiralsoft.servare.domain.model.EstadoConectividad
 import com.spiralsoft.servare.domain.model.EstadoConectividad.CONECTADO
 import com.spiralsoft.servare.domain.model.EstadoConectividad.RED_SIN_SERVIDOR
 import com.spiralsoft.servare.domain.model.EstadoConectividad.SIN_RED
@@ -67,7 +66,7 @@ class DefaultSesionRepositoryUnitTest {
     fun una_contrasena_mas_corta_que_el_minimo_se_rechaza_y_la_justa_pasa() = runBlocking {
         assertEquals(
             ResultadoRegistro.ContrasenaCorta,
-            repo.registrar("a@b.com", "x".repeat(LONGITUD_MINIMA_CONTRASENA - 1), "clave")
+            repo.registrar("a@b.com", "x".repeat(LONGITUD_MINIMA_CONTRASENA - 1), "clave"),
         )
         coEvery { remoto.registrar(any(), any(), any()) } returns ResultadoRegistroRemoto.Rechazado
         assertEquals(ResultadoRegistro.Rechazado, repo.registrar("a@b.com", contrasenaValida, "clave"))

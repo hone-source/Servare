@@ -40,6 +40,6 @@ class PoliticaReintentosUnitTest {
     fun la_espera_nunca_decrece() {
         val esperas = (1..100).map(PoliticaReintentos::espera)
 
-        assertTrue(esperas.zipWithNext().all { (a, b) -> a <= b })
+        assertTrue(esperas.asSequence().zipWithNext().all { (a, b) -> a <= b })
     }
 }

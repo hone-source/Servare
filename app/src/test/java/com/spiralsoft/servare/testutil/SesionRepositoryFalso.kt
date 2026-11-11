@@ -1,7 +1,6 @@
 package com.spiralsoft.servare.testutil
 
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import com.spiralsoft.servare.domain.model.EstadoSesion
 import com.spiralsoft.servare.domain.repository.ResultadoCierreSesion
 import com.spiralsoft.servare.domain.repository.ResultadoInicioSesion

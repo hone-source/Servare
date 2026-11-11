@@ -17,7 +17,7 @@ class PruebaYPuntoDtoUnitTest {
     @Test
     fun la_prueba_remota_se_lee_con_version_sin_ella_y_con_campos_de_mas() {
         val completa = json.decodeFromString<PruebaRemota>(
-            """{"entityId":"e","titulo":"T","texto":"x","numero":3,"createdAt":9,"version":4,"extra":true}"""
+            """{"entityId":"e","titulo":"T","texto":"x","numero":3,"createdAt":9,"version":4,"extra":true}""",
         )
         assertEquals(PruebaRemota("e", "T", "x", 3, 9, 4), completa)
 
@@ -49,7 +49,7 @@ class PruebaYPuntoDtoUnitTest {
     @Test
     fun el_punto_remoto_conserva_las_coordenadas_con_decimales() {
         val punto = json.decodeFromString<PuntoRemoto>(
-            """{"entityId":"p","nombre":"Mirador","latitud":22.770123,"longitud":-102.573456,"createdAt":1,"version":2}"""
+            """{"entityId":"p","nombre":"Mirador","latitud":22.770123,"longitud":-102.573456,"createdAt":1,"version":2}""",
         )
 
         assertEquals(PuntoRemoto("p", "Mirador", 22.770123, -102.573456, 1, 2), punto)

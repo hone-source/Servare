@@ -38,7 +38,7 @@ class DefaultPuntoRepositoryUnitTest {
     private val repo by lazy {
         DefaultPuntoRepository(
             bd.db.puntoDao(), EscrituraOutbox(bd.db, EncoladorOperaciones(bd.operaciones, reloj), bd.eliminaciones, scheduler, reloj),
-            bd.syncInicial, motor, resolutor
+            bd.syncInicial, motor, resolutor,
         )
     }
 

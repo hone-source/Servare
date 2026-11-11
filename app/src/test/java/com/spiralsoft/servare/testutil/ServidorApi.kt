@@ -46,7 +46,7 @@ class ServidorApi : TestWatcher() {
 
     fun responder(codigo: Int, cuerpo: String? = null) {
         val respuesta = MockResponse.Builder().code(codigo)
-        if (cuerpo != null) respuesta.addHeader("Content-Type", "application/json").body(cuerpo)
+        cuerpo?.let { respuesta.addHeader("Content-Type", "application/json").body(it) }
         servidor.enqueue(respuesta.build())
     }
 

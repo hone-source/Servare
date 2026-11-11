@@ -31,7 +31,7 @@ class DefaultPruebaRepositoryUnitTest {
     private val repo by lazy {
         DefaultPruebaRepository(
             bd.pruebas, EscrituraOutbox(bd.db, EncoladorOperaciones(bd.operaciones, reloj), bd.eliminaciones, scheduler, reloj),
-            bd.syncInicial, mockk<SyncEngine>(), mockk<ResolutorOperaciones>()
+            bd.syncInicial, mockk<SyncEngine>(), mockk<ResolutorOperaciones>(),
         )
     }
 

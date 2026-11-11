@@ -118,13 +118,13 @@ class RegistroViewModelUnitTest {
             ResultadoRegistro.SinConexion(EstadoConectividad.RED_SIN_SERVIDOR) to MensajesSesion.sinConexion,
             ResultadoRegistro.SinRespuesta to MensajesSesion.sinRespuesta,
             ResultadoRegistro.Rechazado to MensajesSesion.rechazado,
-            ResultadoRegistro.ErrorServidor to MensajesSesion.errorServidor
+            ResultadoRegistro.ErrorServidor to MensajesSesion.errorServidor,
         )
         for ((r, esperado) in mensajes) {
             resultado(r)
             vm.enviar()
-            assertEquals("$r", esperado, vm.state.value.mensaje)
-            assertFalse("$r", vm.state.value.enviando)
+            assertEquals(r.toString(), esperado, vm.state.value.mensaje)
+            assertFalse(r.toString(), vm.state.value.enviando)
             vm.mensajeMostrado()
         }
     }

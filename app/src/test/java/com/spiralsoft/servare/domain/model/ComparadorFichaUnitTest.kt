@@ -20,7 +20,7 @@ class ComparadorFichaUnitTest {
 
         assertEquals(
             listOf(CampoComparado("Nombre del lugar", "Cerro", "Cerro Grande")),
-            compararFichas(local, servidor)
+            compararFichas(local, servidor),
         )
     }
 

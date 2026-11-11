@@ -1,7 +1,6 @@
 package com.spiralsoft.servare.ui.viewModel
 
 import com.spiralsoft.servare.domain.model.AvisoDescargaInicial
-import com.spiralsoft.servare.domain.model.AvisoResultado
 import com.spiralsoft.servare.domain.model.FichaResumen
 import com.spiralsoft.servare.domain.model.TipoEspacio
 import com.spiralsoft.servare.domain.repository.FichaRepository
@@ -27,10 +26,10 @@ class FichaListViewModelUnitTest {
     private val resumenes = MutableStateFlow<List<FichaResumen>>(emptyList())
     private val repo = mockk<FichaRepository>().also {
         every { it.observarResumenes() } returns resumenes
-        every { it.observarDescargaInicial() } returns MutableStateFlow(true)
+        every { it.observarDescargaInicial() } returns MutableStateFlow(value = true)
     }
     private val servicio = mockk<ServicioNotificacionEstado>().also {
-        every { it.resultados } returns MutableSharedFlow<AvisoResultado>(extraBufferCapacity = 1)
+        every { it.resultados } returns MutableSharedFlow(extraBufferCapacity = 1)
         every { it.descargaInicial } returns MutableStateFlow(AvisoDescargaInicial("t", "d"))
         every { it.sesionExpirada } returns MutableStateFlow(null)
         every { it.problemasOperacion } returns MutableStateFlow(emptyList())

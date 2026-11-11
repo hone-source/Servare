@@ -49,7 +49,7 @@ class AdaptadorPuntoUnitTest {
         val resultado = adaptador.enviar(operacion("op", 1, entidad = "p1", tipoEntidad = TipoEntidad.PUNTO, baseVersion = 1))
 
         assertEquals(ResultadoEnvio.Confirmada(2), resultado)
-        coVerify { remoto.actualizar("op", match { it.entityId == "p1" && it.nombre == "Mío" }, 1) }
+        coVerify { remoto.actualizar("op", match { (it.entityId == "p1") && (it.nombre == "Mío") }, 1) }
     }
 
     @Test

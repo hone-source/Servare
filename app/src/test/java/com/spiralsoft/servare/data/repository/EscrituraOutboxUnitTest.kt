@@ -111,7 +111,7 @@ class EscrituraOutboxUnitTest {
         val resultado = outbox.actualizar(
             tipo, "e1",
             buscar = { bd.pruebas.findActivaById("e1")?.let { Existente(it, it.version) } },
-            guardar = { bd.pruebas.update(it.copy(titulo = "Cambiado")) }
+            guardar = { bd.pruebas.update(it.copy(titulo = "Cambiado")) },
         )
 
         assertEquals(ResultadoEscritura.Ok("e1"), resultado)

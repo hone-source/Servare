@@ -13,6 +13,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import kotlin.time.Duration.Companion.milliseconds
 
 // El gestor de sesión con el almacén doblado: la lectura inicial corre en Dispatchers.IO, así que se espera el estado
 class GestorSesionUnitTest {
@@ -23,7 +24,7 @@ class GestorSesionUnitTest {
     private suspend fun gestor(guardada: SesionGuardada?): GestorSesion {
         coEvery { almacen.leer() } returns guardada
         val gestor = GestorSesion(almacen, scheduler, reloj)
-        withTimeout(5_000) { gestor.estado.first { it != EstadoSesion.Cargando } }
+        withTimeout(5_000.milliseconds) { gestor.estado.first { it != EstadoSesion.Cargando } }
         return gestor
     }
 
