@@ -95,7 +95,6 @@ dependencies {
     implementation(libs.maplibre.android.sdk)
 
     testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
