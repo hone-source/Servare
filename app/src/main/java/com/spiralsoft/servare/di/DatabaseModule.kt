@@ -16,8 +16,6 @@ object DatabaseModule {
 
     @Provides fun pruebaDao(db: AppDatabase) = db.pruebaDao() //Para pruebas
 
-    @Provides fun fichaDao(db: AppDatabase) = db.fichaDao()
-
     @Provides @Singleton
     fun database(@ApplicationContext ctx: Context): AppDatabase =
         Room.databaseBuilder(
@@ -30,7 +28,10 @@ object DatabaseModule {
 
     @Provides fun eliminacionDao(db: AppDatabase) = db.eliminacionDao()
 
-    //Dao para las operaciones propias del sistema
     @Provides fun syncInicialDao(db: AppDatabase) = db.syncInicialDao()
+
+    //Dao para las operaciones propias del sistema
+    @Provides fun fichaDao(db: AppDatabase) = db.fichaDao()
+    @Provides fun puntoDao(db: AppDatabase) = db.puntoDao()
 
 }

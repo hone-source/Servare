@@ -50,6 +50,7 @@ fun ListFichaScreen(
     mensaje: String?,
     onMensajeMostrado: () -> Unit,
     onPruebas: (() -> Unit)? = null,
+    onMapa: (() -> Unit)? = null,
     viewModel: FichaListViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -77,7 +78,7 @@ fun ListFichaScreen(
                     title = { Text("Fichas") },
                     actions = {
                         IndicadorConectividad()
-                        MenuSesion(onPruebas)
+                        MenuSesion(onPruebas, onMapa)
                     }
                 )
                 state.sesionExpirada?.let { TarjetaSesionExpirada(it, onIniciarSesion) }

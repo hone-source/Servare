@@ -9,12 +9,14 @@ import dagger.multibindings.IntoMap
 import com.spiralsoft.servare.data.sync.AdaptadorEntidad
 import com.spiralsoft.servare.data.sync.AdaptadorFicha
 import com.spiralsoft.servare.data.sync.AdaptadorPrueba
+import com.spiralsoft.servare.data.sync.AdaptadorPunto
 import com.spiralsoft.servare.domain.model.TipoEntidad
 
 @MapKey
 annotation class ClaveTipoEntidad(val value: TipoEntidad)
 
-// Un adaptador por cada valor de TipoEntidad: Adaptadores lo comprueba al construirse
+// Un adaptador por cada valor de TipoEntidad
+// Adaptadores lo comprueba al construirse
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class SyncModule {
@@ -24,4 +26,7 @@ abstract class SyncModule {
 
     @Binds @IntoMap @ClaveTipoEntidad(TipoEntidad.FICHA)
     abstract fun adaptadorFicha(impl: AdaptadorFicha): AdaptadorEntidad
+
+    @Binds @IntoMap @ClaveTipoEntidad(TipoEntidad.PUNTO)
+    abstract fun adaptadorPunto(impl: AdaptadorPunto): AdaptadorEntidad
 }

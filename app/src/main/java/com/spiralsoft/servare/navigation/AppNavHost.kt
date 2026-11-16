@@ -23,6 +23,7 @@ import com.spiralsoft.servare.ui.screen.InicioScreen
 import com.spiralsoft.servare.ui.screen.ListFichaScreen
 import com.spiralsoft.servare.ui.screen.ListPruebaScreen
 import com.spiralsoft.servare.ui.screen.LoginScreen
+import com.spiralsoft.servare.ui.screen.MapaScreen
 import com.spiralsoft.servare.ui.screen.RegistroScreen
 import com.spiralsoft.servare.ui.viewModel.SesionViewModel
 
@@ -108,7 +109,8 @@ fun AppNavHost(
                 onMensajeMostrado = { entry.savedStateHandle[MENSAJE] = null },
                 onPruebas = if (BuildConfig.DEBUG) {
                     { navController.navigate(Screen.PruebaList.route) }
-                } else null
+                } else null,
+                onMapa = { navController.navigate(Screen.Mapa.route) }
             )
         }
         composable(
@@ -125,6 +127,14 @@ fun AppNavHost(
                     navController.previousBackStackEntry?.savedStateHandle?.set(MENSAJE, mensaje)
                     navController.popBackStack()
                 }
+            )
+        }
+
+        // Mapa de sitios
+        composable(Screen.Mapa.route) {
+            MapaScreen(
+                onVolver = { navController.popBackStack() },
+                onIniciarSesion = { navController.navigate(Screen.Login.route) }
             )
         }
 

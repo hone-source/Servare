@@ -91,7 +91,7 @@ interface OperationDao {
     )
     suspend fun marcarReintentable(operationId: String, intentos: Int, proximo: Long, error: String)
 
-    // Error definitivo (422, 413, regla de negocio) o 5 intentos agotados
+    // Error definitivo (422, 413, regla de negocio) o intentos agotados
     @Query(
         """
         UPDATE operaciones
@@ -144,7 +144,7 @@ interface OperationDao {
     @Query("SELECT * FROM operaciones WHERE operationId = :operationId")
     suspend fun buscar(operationId: String): OperationEntity?
 
-    // FALLIDA → PENDIENTE con el mismo operationId y los 5 intentos de nuevo
+    // FALLIDA → PENDIENTE con el mismo operationId y los intentos de nuevo
     @Query(
         """
         UPDATE operaciones

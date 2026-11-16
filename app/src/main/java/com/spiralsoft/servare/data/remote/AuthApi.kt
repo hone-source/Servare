@@ -8,11 +8,11 @@ import retrofit2.http.POST
 // Contrato de sesión con el servidor
 interface AuthApi {
 
-    // La clave viaja en Idempotency-Key como en PruebaApi, con la misma clave el servidor reconoce
+    // La clave viaja en Idempotency-Key, con la misma clave el servidor reconoce
     // el reintento de un registro que sí llegó a crear la cuenta
     @POST("api/auth/registro")
     suspend fun registrar(
-        @Header(PruebaApi.IDEMPOTENCY_KEY) claveRegistro: String,
+        @Header("Idempotency-Key") claveRegistro: String,
         @Body registro: RegistroRequest
     ): Response<SesionResponse>
 
